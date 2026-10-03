@@ -48,7 +48,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -123,10 +123,10 @@ private fun ProofRailThemeRoot() {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                SmallTopAppBar(
+                TopAppBar(
                     title = { Brand() },
                     actions = { IconButton({ settings = true }) { Icon(Icons.Filled.Settings, "Settings") } },
-                    colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             },
             bottomBar = {
