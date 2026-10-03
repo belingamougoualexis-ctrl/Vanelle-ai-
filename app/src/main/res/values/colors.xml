@@ -1,0 +1,7 @@
+<resources>
+    <color name="proofrail_navy">#0B1220</color>
+    <color name="proofrail_blue">#2878FF</color>
+    <color name="proofrail_blue_dark">#1557C8</color>
+    <color name="proofrail_surface">#F6F8FC</color>
+    <color name="proofrail_white">#FFFFFF</color>
+</resources>
