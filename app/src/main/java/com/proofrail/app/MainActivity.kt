@@ -39,7 +39,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -134,18 +133,6 @@ private fun ProofRailThemeRoot() {
                     Tab.entries.forEach { t ->
                         NavigationBarItem(t == tab, { tab = t }, icon = { TabIcon(t) }, label = { Text(t.label, fontSize = 10.sp) })
                     }
-                }
-            },
-            floatingActionButton = {
-                if (tab == Tab.CONTROLS || tab == Tab.EVIDENCE || tab == Tab.DECISIONS) {
-                    FloatingActionButton({
-                        when (tab) {
-                            Tab.CONTROLS -> tab = Tab.CONTROLS
-                            Tab.EVIDENCE -> tab = Tab.EVIDENCE
-                            Tab.DECISIONS -> tab = Tab.DECISIONS
-                            else -> Unit
-                        }
-                    }) { Icon(Icons.Filled.Add, "Create") }
                 }
             },
             containerColor = MaterialTheme.colorScheme.background
@@ -250,7 +237,15 @@ private fun ProofRailThemeRoot() {
     Box(Modifier.fillMaxSize().padding(padding)) {
         if (controls.isEmpty()) Empty("No controls yet", "Create a control with an evidence threshold.") { create = true }
         else LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("Controls", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold); Text("Deterministic checks against captured evidence.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Controls", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                        Text("Deterministic checks against captured evidence.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button({ create = true }) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Add") }
+                }
+            }
             items(controls, key = { it.id }) { c ->
                 Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Column(Modifier.padding(17.dp)) {
@@ -282,9 +277,21 @@ private fun ProofRailThemeRoot() {
     var create by remember { mutableStateOf(false) }
     fun reload() { controls = db.listControls(); evidence = db.listEvidence(); changed() }
     Box(Modifier.fillMaxSize().padding(padding)) {
-        if (evidence.isEmpty()) Empty("No evidence captured", "Capture a source-backed observation and attach it to a control.") { if (controls.isNotEmpty()) create = true }
+        if (evidence.isEmpty()) Empty(
+            "No evidence captured",
+            "Capture a source-backed observation and attach it to a control.",
+            action = if (controls.isNotEmpty()) ({ create = true }) else null
+        )
         else LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("Evidence", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold); Text("Records stored locally and linked to controls.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Evidence", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                        Text("Records stored locally and linked to controls.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(enabled = controls.isNotEmpty(), onClick = { create = true }) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Add") }
+                }
+            }
             items(evidence, key = { it.id }) { e -> EvidenceCard(e) }
         }
     }
@@ -308,7 +315,15 @@ private fun ProofRailThemeRoot() {
     Box(Modifier.fillMaxSize().padding(padding)) {
         if (list.isEmpty()) Empty("No decisions", "Create a decision gate when a sensitive action requires an explicit approval.") { create = true }
         else LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("Decision gate", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold); Text("Human decisions are explicit and audited.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Decision gate", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                        Text("Human decisions are explicit and audited.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button({ create = true }) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Add") }
+                }
+            }
             items(list, key = { it.id }) { d ->
                 Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Column(Modifier.padding(17.dp)) {
@@ -350,9 +365,19 @@ private fun ProofRailThemeRoot() {
     Text(text, Modifier.background(if (text == "PASS" || text == "APPROVED" || text == "VALID") Color(0xFFE7F6ED) else Color(0xFFFFF1D8), RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 5.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold)
 }
 
-@Composable private fun Empty(title: String, body: String, action: (() -> Unit)) {
+@Composable private fun Empty(title: String, body: String, action: (() -> Unit)? = null) {
     Box(Modifier.fillMaxSize().padding(30.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Filled.Shield, null, tint = Color(0xFF2878FF), modifier = Modifier.size(48.dp)); Spacer(Modifier.height(12.dp)); Text(title, fontWeight = FontWeight.Bold, fontSize = 19.sp); Spacer(Modifier.height(6.dp)); Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(14.dp)); Button(action) { Text("Create") } }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Filled.Shield, null, tint = Color(0xFF2878FF), modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (action != null) {
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = action) { Text("Create") }
+            }
+        }
     }
 }
 
