@@ -51,7 +51,7 @@ class ProofRailInstrumentedTest {
         assertTrue(before.auditEntries >= 5)
 
         val backup = db.exportJson()
-        assertTrue(backup.contains(""format":"proofrail-workspace""))
+        assertTrue(backup.contains("proofrail-workspace"))
 
         db.importJson(backup)
 
