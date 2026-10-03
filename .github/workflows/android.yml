@@ -75,7 +75,9 @@ jobs:
       - name: Verify APK metadata
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | tee apk-badging.txt
-          grep -q "package: name='com.proofrail.app' versionName='1.0.0'" apk-badging.txt
+          grep -q "package: name='com.proofrail.app'" apk-badging.txt
+          grep -q "versionName='1.0.0'" apk-badging.txt
+          grep -q "compileSdkVersion='35'" apk-badging.txt
           test -s app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Upload unsigned release artifact
