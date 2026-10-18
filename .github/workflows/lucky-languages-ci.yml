@@ -1,7 +1,7 @@
 name: Lucky Languages Academy CI
 on:
   push:
-    branches: ["feat/lucky-languages-academy"]
+    branches: ["feat/lucky-languages-academy", "feat/lucky-adaptive-language-ai", "feat/lucky-bundled-local-ai-e2e"]
     paths:
       - "lucky-languages/**"
       - ".github/workflows/lucky-languages-ci.yml"
@@ -28,4 +28,31 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m compileall -q app tests
       - run: python tests/check_frontend.py
-      - run: pytest -q
+      - run: pytest -q -m "not ai_integration"
+  test-real-local-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: lucky-languages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Start Ollama engine
+        run: |
+          docker run -d --name lucky-ollama -p 11434:11434 ollama/ollama:latest
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+      - name: Download real model weights
+        run: docker exec lucky-ollama ollama pull qwen2.5:1.5b
+      - name: Generate exercises through the application API using the actual model
+        env:
+          LUCKY_OLLAMA_URL: http://127.0.0.1:11434/api/generate
+          LUCKY_PEDAGOGY_MODEL: qwen2.5:1.5b
+        run: pytest -q tests/test_ai_integration.py -m ai_integration

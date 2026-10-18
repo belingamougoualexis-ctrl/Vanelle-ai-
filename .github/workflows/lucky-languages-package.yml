@@ -1,7 +1,7 @@
 name: Package Lucky Languages Academy
 on:
   push:
-    branches: ["feat/lucky-languages-academy", "feat/lucky-adaptive-language-ai"]
+    branches: ["feat/lucky-languages-academy", "feat/lucky-adaptive-language-ai", "feat/lucky-bundled-local-ai-e2e"]
     paths:
       - "lucky-languages/**"
       - ".github/workflows/lucky-languages-package.yml"

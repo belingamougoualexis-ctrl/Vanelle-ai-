@@ -7,6 +7,7 @@ exam papers are never copied into the built-in bank.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 import urllib.error
@@ -17,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/pedagogy", tags=["pedagogy"])
+logger = logging.getLogger(__name__)
 
 LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2", "beginner", "primary", "secondary", "be_pc"}
 LANGUAGE_METHODS: dict[str, dict[str, Any]] = {
@@ -116,26 +118,63 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     prompt = {"system_role":system,"target_language":method["name"],"level":req.level,"skill":req.skill,
               "topic":req.topic,"learner_language":req.learner_language,"language_method":method["method"],
               "learner_difficulties":req.wrong_answers,"count":req.count}
-    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":"json"},ensure_ascii=False).encode()
+    response_schema = {"type":"object","properties":{"questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"options":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},"answer":{"type":"string"},"explanation":{"type":"string"},"skill":{"type":"string"}},"required":["question","options","answer","explanation","skill"]},"minItems":1,"maxItems":req.count}},"required":["questions"]}
+    # Constrain the model output to a compact schema; this avoids truncated, free-form JSON.
+    prompt["output_instruction"] = "Return exactly one question. Keep question and explanation short. Options must be 3 short strings. No markdown."
+    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":response_schema,"options":{"num_predict":512,"temperature":0.1}},ensure_ascii=False).encode()
     request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=45) as response:
+        with urllib.request.urlopen(request, timeout=180) as response:
             data=json.loads(response.read().decode())
         raw=data.get("response","[]")
-        parsed=json.loads(raw)
-        if isinstance(parsed,dict): parsed=parsed.get("questions",[])
+        # Ollama's JSON mode can return either an array, a {"questions": [...]} object,
+        # or (with smaller models) a single question object. Accept only validated items.
+        if isinstance(raw, (dict, list)):
+            parsed=raw
+        else:
+            raw=str(raw).strip()
+            if raw.startswith("```"):
+                raw=raw.split("\n",1)[-1]
+                if raw.endswith("```"):
+                    raw=raw[:-3].strip()
+            parsed=json.loads(raw)
+        if isinstance(parsed,dict):
+            if isinstance(parsed.get("questions"),list):
+                parsed=parsed["questions"]
+            elif parsed.get("question"):
+                parsed=[parsed]
+            else:
+                parsed=[]
         if not isinstance(parsed,list): return None
         valid=[]
         for item in parsed[:req.count]:
             if not isinstance(item,dict): continue
-            q=str(item.get("question","")).strip(); opts=item.get("options",[]); ans=str(item.get("answer","")).strip()
-            if q and isinstance(opts,list) and 2 <= len(opts) <= 5 and all(isinstance(x,str) for x in opts) and ans in opts:
-                item.update({"question":q,"options":opts,"answer":ans,"explanation":str(item.get("explanation","")), "source":"ai_generated_unverified"})
+            q=str(item.get("question","")).strip()
+            opts=item.get("options",[])
+            ans=str(item.get("answer","")).strip()
+            if isinstance(opts, str):
+                opts=[part.strip() for part in opts.split("|") if part.strip()]
+            if not isinstance(opts,list):
+                continue
+            opts=[str(option).strip() for option in opts if str(option).strip()]
+            # Repair minor answer casing/whitespace mismatches, but never invent an answer.
+            matching=next((option for option in opts if option.casefold()==ans.casefold()),None)
+            if matching:
+                ans=matching
+            if q and 2 <= len(opts) <= 5 and ans in opts:
+                item.update({"question":q,"options":opts,"answer":ans,
+                             "explanation":str(item.get("explanation","")).strip() or "Relis la règle et explique pourquoi cette réponse convient.",
+                             "skill":str(item.get("skill") or req.skill),
+                             "source":"ai_generated_unverified"})
                 if req.language_code=="zh" and not all(item.get(k) for k in ("pinyin","meaning")):
                     continue
                 valid.append(item)
-        return valid if len(valid)>=1 else None
-    except (OSError, ValueError, KeyError, urllib.error.URLError, TimeoutError):
+        if not valid:
+            logger.warning("Local model %s returned no schema-valid questions for language=%s level=%s", model, req.language_code, req.level)
+            return None
+        return valid
+    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError) as exc:
+        logger.warning("Local model request/parse failed (%s): %s", type(exc).__name__, exc)
         return None
 
 def generate_questions(req: GenerateRequest) -> dict[str, Any]:
