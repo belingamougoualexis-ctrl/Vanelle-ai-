@@ -122,20 +122,50 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
         with urllib.request.urlopen(request, timeout=45) as response:
             data=json.loads(response.read().decode())
         raw=data.get("response","[]")
-        parsed=json.loads(raw)
-        if isinstance(parsed,dict): parsed=parsed.get("questions",[])
+        # Ollama's JSON mode can return either an array, a {"questions": [...]} object,
+        # or (with smaller models) a single question object. Accept only validated items.
+        if isinstance(raw, (dict, list)):
+            parsed=raw
+        else:
+            raw=str(raw).strip()
+            if raw.startswith("```"):
+                raw=raw.split("\n",1)[-1]
+                if raw.endswith("```"):
+                    raw=raw[:-3].strip()
+            parsed=json.loads(raw)
+        if isinstance(parsed,dict):
+            if isinstance(parsed.get("questions"),list):
+                parsed=parsed["questions"]
+            elif parsed.get("question"):
+                parsed=[parsed]
+            else:
+                parsed=[]
         if not isinstance(parsed,list): return None
         valid=[]
         for item in parsed[:req.count]:
             if not isinstance(item,dict): continue
-            q=str(item.get("question","")).strip(); opts=item.get("options",[]); ans=str(item.get("answer","")).strip()
-            if q and isinstance(opts,list) and 2 <= len(opts) <= 5 and all(isinstance(x,str) for x in opts) and ans in opts:
-                item.update({"question":q,"options":opts,"answer":ans,"explanation":str(item.get("explanation","")), "source":"ai_generated_unverified"})
+            q=str(item.get("question","")).strip()
+            opts=item.get("options",[])
+            ans=str(item.get("answer","")).strip()
+            if isinstance(opts, str):
+                opts=[part.strip() for part in opts.split("|") if part.strip()]
+            if not isinstance(opts,list):
+                continue
+            opts=[str(option).strip() for option in opts if str(option).strip()]
+            # Repair minor answer casing/whitespace mismatches, but never invent an answer.
+            matching=next((option for option in opts if option.casefold()==ans.casefold()),None)
+            if matching:
+                ans=matching
+            if q and 2 <= len(opts) <= 5 and ans in opts:
+                item.update({"question":q,"options":opts,"answer":ans,
+                             "explanation":str(item.get("explanation","")).strip() or "Relis la règle et explique pourquoi cette réponse convient.",
+                             "skill":str(item.get("skill") or req.skill),
+                             "source":"ai_generated_unverified"})
                 if req.language_code=="zh" and not all(item.get(k) for k in ("pinyin","meaning")):
                     continue
                 valid.append(item)
         return valid if len(valid)>=1 else None
-    except (OSError, ValueError, KeyError, urllib.error.URLError, TimeoutError):
+    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError):
         return None
 
 def generate_questions(req: GenerateRequest) -> dict[str, Any]:
