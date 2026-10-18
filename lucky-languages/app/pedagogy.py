@@ -121,7 +121,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":"json","options":{"num_predict":384,"temperature":0.2}},ensure_ascii=False).encode()
     request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=45) as response:
+        with urllib.request.urlopen(request, timeout=180) as response:
             data=json.loads(response.read().decode())
         raw=data.get("response","[]")
         # Ollama's JSON mode can return either an array, a {"questions": [...]} object,
