@@ -10,6 +10,8 @@ public final class ServerUrl {
         if (input == null) throw new IllegalArgumentException("Saisissez l'adresse du serveur.");
         String value = input.trim();
         if (value.isEmpty()) throw new IllegalArgumentException("Saisissez l'adresse du serveur.");
+        if (value.matches("(?i)^[a-z][a-z0-9+.-]*://.*") && !value.matches("(?i)^https?://.*"))
+            throw new IllegalArgumentException("Utilisez une adresse HTTP ou HTTPS.");
         if (!value.matches("(?i)^https?://.*")) value = "http://" + value;
         try {
             URI uri = new URI(value);
