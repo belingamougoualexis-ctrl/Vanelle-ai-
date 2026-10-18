@@ -430,6 +430,10 @@ def init_db():
 @app.on_event("startup")
 def startup():
  init_db()
+ # Ensure course tables exist before adding the complete CEFR learning paths.
+ init_academy_tables()
+ from .curriculum_expansion import seed_expanded_curriculum
+ seed_expanded_curriculum(DB_PATH)
  # Optional first-admin bootstrap: configure all three variables in the deployment environment.
  # No default credentials are created.
  admin_name=os.getenv("LUCKY_ADMIN_NAME")
