@@ -156,7 +156,20 @@ def test_cefr_course_paths_cover_a1_to_c2_and_additional_language_starters(clien
    if item["language_code"] == code and item["level"] in {"A2", "B1", "B2", "C1", "C2"}:
     detail = client.get(f"/api/courses/{item['id']}")
     assert detail.status_code == 200
-    assert len(detail.json()["lessons"]) >= 3
-    assert all(lesson["title"] and lesson["body"] and lesson["exercise"] and lesson["position"] for lesson in detail.json()["lessons"])
+    assert len(detail.json()["lessons"]) >= 6
+    assert all(lesson["title"] and lesson["body"] and lesson["exercise"] and lesson["answer"] and lesson["position"] for lesson in detail.json()["lessons"])
  for code in ("de", "pt", "zh", "ja", "ko", "ar", "ru"):
-  assert any(item["language_code"] == code and item["level"] == "A1" for item in items)
+  starter = next((item for item in items if item["language_code"] == code and item["level"] == "A1"), None)
+  assert starter is not None
+  detail = client.get(f"/api/courses/{starter['id']}")
+  assert detail.status_code == 200
+  assert len(detail.json()["lessons"]) >= 8
+  assert all(lesson.get("answer") for lesson in detail.json()["lessons"])
+
+def test_course_lessons_expose_answer_for_interactive_self_check(client):
+ courses = client.get("/api/courses").json()["items"]
+ for code in ("en", "fr", "es"):
+  starter = next(item for item in courses if item["language_code"] == code and item["level"] == "A1")
+  detail = client.get(f"/api/courses/{starter['id']}").json()
+  assert len(detail["lessons"]) >= 6
+  assert all(isinstance(lesson["answer"], str) and lesson["answer"].strip() for lesson in detail["lessons"])
