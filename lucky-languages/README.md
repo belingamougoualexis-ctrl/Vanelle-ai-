@@ -75,3 +75,15 @@ pytest -q
 - The local tutor works only when an Ollama-compatible service is running on loopback. Models are not bundled with the application. The default Qwen 1.5B model must be downloaded separately; available RAM, latency and quality should be measured on the target device.
 - Uploaded files are limited to 10 MB and allowed file extensions, but production needs malware scanning, storage isolation and retention policy.
 - SQLite is not a suitable final database for a high-traffic school service. The current project is a functional application foundation, not a certified or production-hardened education platform.
+
+
+## Adaptive language pedagogy (added)
+
+- **Exercises API:** `POST /api/pedagogy/generate` supports language, level (A1–C2, beginner, primary, secondary, BEPC), skill, topic, count and learner difficulties.
+- **Correction API:** `POST /api/pedagogy/grade` checks a submitted answer against the question's reference answer and returns feedback/explanation.
+- **Language-specific methods:** dedicated practice guidance for English, French, Spanish, Mandarin Chinese, Japanese, Korean, Arabic, Russian, German and Portuguese. Other language identifiers receive a generic safe template rather than a claim of complete curriculum.
+- **Chinese practice:** original activities include character, meaning, pinyin, tones in explanations, stroke-count metadata where known, and a writing prompt. The web text field cannot judge handwriting stroke quality or spoken tones; no such capability is claimed.
+- **Local AI:** optional Ollama integration through `LUCKY_OLLAMA_URL` and `LUCKY_PEDAGOGY_MODEL` (defaults to local Ollama at `127.0.0.1:11434` and `qwen2.5:1.5b`). The model must be installed and downloaded separately. If unavailable, generation falls back to built-in original questions/templates. Generated questions are marked unverified and must be teacher-reviewed before high-stakes grading.
+- **Exam sources:** the UI links to official exam/resource sites for DELF/DALF/TCF, DELE, Cambridge English, HSK and Goethe. The app stores source references and reuse warnings, not copied copyrighted question papers. Each resource's specific license must be checked before importing it.
+- **Testing:** `tests/test_pedagogy.py` verifies endpoint schemas, answer validation, Chinese metadata, level rejection and exam-source reuse notes.
+- **Scope:** these are starter paths and not a complete, accredited curriculum for every language or official exam. The catalogue does not imply that every language has verified lessons or question banks.
