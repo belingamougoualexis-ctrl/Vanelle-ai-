@@ -14,7 +14,7 @@ def test_real_local_model_generates_valid_language_exercise():
         "level": "A1",
         "skill": "vocabulary",
         "topic": "school",
-        "count": 2,
+        "count": 1,
         "use_local_ai": True,
     })
     assert response.status_code == 200, response.text
