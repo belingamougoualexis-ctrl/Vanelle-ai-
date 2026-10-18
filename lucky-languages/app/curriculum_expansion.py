@@ -160,9 +160,9 @@ def seed_expanded_curriculum(db_path: str | Path) -> dict[str, int]:
                     answer = (row["answer"] or "").strip() or generated_answer
                     body = (row["body"] or "").strip()
                     if len(body) < 80:
-                        body = (body + "\\n\\n" if body else "") + generated_body
+                        body = (body + "\n\n" if body else "") + generated_body
                     if answer not in body:
-                        body += f"\\n\\n**Réponse de référence :** {answer}"
+                        body += f"\n\n**Réponse de référence :** {answer}"
                     if (title, body, exercise, answer) != (
                         row["title"], row["body"], row["exercise"], row["answer"]
                     ):
