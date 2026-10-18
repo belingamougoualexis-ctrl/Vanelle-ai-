@@ -59,17 +59,21 @@ def test_login_and_bad_password(client):
 
 def test_admin_role_management_and_teacher_grade_entry(client):
  student=register(client,"student_for_teacher")
+ teacher=register(client,"teacher_account")
  with db_session() as db:
   db.execute("INSERT INTO users(full_name,username,password_hash,role) VALUES(?,?,?,'admin')",
              ("Admin Example","admin1",password_hash("admin-password-123456")))
  admin_login=client.post("/api/auth/login",json={"username":"admin1","password":"admin-password-123456"})
  assert admin_login.status_code==200
  admin_headers=auth(admin_login.json()["access_token"])
- promoted=client.post(f"/api/admin/users/{student['user']['id']}/role",headers=admin_headers,json={"role":"teacher"})
+ promoted=client.post(f"/api/admin/users/{teacher['user']['id']}/role",headers=admin_headers,json={"role":"teacher"})
  assert promoted.status_code==200
- grade=client.post("/api/grades",headers=admin_headers,json={
+ teacher_login=client.post("/api/auth/login",json={"username":"teacher_account","password":"correct-horse-battery"})
+ assert teacher_login.status_code==200
+ teacher_headers=auth(teacher_login.json()["access_token"])
+ grade=client.post("/api/grades",headers=teacher_headers,json={
   "student_id":student["user"]["id"],"subject":"Français","assessment":"Évaluation 1","score":15,"coefficient":2
  })
  assert grade.status_code==201
- bulletin=client.get(f"/api/bulletin?student_id={student['user']['id']}",headers=admin_headers)
+ bulletin=client.get(f"/api/bulletin?student_id={student['user']['id']}",headers=teacher_headers)
  assert bulletin.status_code==200 and bulletin.json()["average"]==15
