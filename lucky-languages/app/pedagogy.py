@@ -121,33 +121,77 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     method = LANGUAGE_METHODS.get(req.language_code, {"name":req.language_code, "method":"Progressive vocabulary and sentence practice."})
     system = ("You are LinguaBloom Academy's careful language teacher and assessment author. "
               "Generate original educational questions only; never claim they are official exam questions. "
-              "Match the requested level, use valid answers, include one concise explanation, and return ONLY a JSON array. "
+              "Match the requested level, use valid answers, include one concise explanation, and return ONLY a valid JSON object containing a questions array. "
               "Each object must have question, options (3 or 4 strings), answer (exactly one option), explanation, skill. "
               "For Chinese use actual Chinese characters and include character, pinyin, meaning, and writing_prompt when relevant. "
               "Never invent an external citation. If uncertain, use simple reliable material.")
     prompt = {"system_role":system,"target_language":method["name"],"level":req.level,"skill":req.skill,
               "topic":req.topic,"learner_language":req.learner_language,"language_method":method["method"],
               "learner_difficulties":req.wrong_answers,"count":req.count}
-    response_schema = {"type":"object","properties":{"questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"options":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},"answer":{"type":"string"},"explanation":{"type":"string"},"skill":{"type":"string"}},"required":["question","options","answer","explanation","skill"]},"minItems":1,"maxItems":req.count}},"required":["questions"]}
-    # Constrain the model output to a compact schema; this avoids truncated, free-form JSON.
-    prompt["output_instruction"] = "Return exactly one question. Keep question and explanation short. Options must be 3 short strings. No markdown."
-    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":response_schema,"options":{"num_predict":512,"temperature":0.1}},ensure_ascii=False).encode()
-    request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
+    question_properties = {
+        "question":{"type":"string"},
+        "options":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},
+        "answer":{"type":"string"},
+        "explanation":{"type":"string"},
+        "skill":{"type":"string"},
+    }
+    question_required = ["question","options","answer","explanation","skill"]
+    if req.language_code == "zh":
+        question_properties.update({
+            "character":{"type":"string"},
+            "pinyin":{"type":"string"},
+            "meaning":{"type":"string"},
+            "writing_prompt":{"type":"string"},
+        })
+        question_required.extend(["pinyin","meaning"])
+    response_schema = {"type":"object","properties":{"questions":{"type":"array","items":{"type":"object","properties":question_properties,"required":question_required},"minItems":1,"maxItems":req.count}},"required":["questions"]}
+    # Small local models can occasionally truncate a JSON string. Retry once with
+    # a shorter instruction and a larger output budget before using offline content.
+    prompt["output_instruction"] = "Return one concise question in the required JSON schema. Keep strings short. No markdown."
+    parsed = None
     try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            data=json.loads(response.read().decode())
-        raw=data.get("response","[]")
-        # Ollama's JSON mode can return either an array, a {"questions": [...]} object,
-        # or (with smaller models) a single question object. Accept only validated items.
-        if isinstance(raw, (dict, list)):
-            parsed=raw
-        else:
-            raw=str(raw).strip()
-            if raw.startswith("```"):
-                raw=raw.split("\n",1)[-1]
-                if raw.endswith("```"):
-                    raw=raw[:-3].strip()
-            parsed=json.loads(raw)
+        for attempt in range(2):
+            attempt_prompt = dict(prompt)
+            output_format = response_schema
+            if attempt:
+                output_format = "json"
+                attempt_prompt["output_instruction"] = (
+                    "Retry: output valid complete JSON only, with no markdown or commentary. "
+                    "Return an object containing a questions array with exactly one question object. "
+                    "The object must have question, options (three short strings), answer (exactly one option), "
+                    "explanation, skill. For Mandarin also include character, pinyin, meaning, and writing_prompt. "
+                    "Keep every string short and escape quotation marks correctly."
+                )
+            payload = json.dumps({
+                "model":model,
+                "prompt":json.dumps(attempt_prompt,ensure_ascii=False),
+                "stream":False,
+                "format":output_format,
+                "options":{"num_predict":1024 if attempt else 512,"temperature":0.0},
+            },ensure_ascii=False).encode()
+            request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
+            try:
+                with urllib.request.urlopen(request, timeout=180) as response:
+                    data=json.loads(response.read().decode())
+                raw=data.get("response","[]")
+                # Ollama JSON mode may return an array, an object containing questions,
+                # or a single question object.
+                if isinstance(raw, (dict, list)):
+                    parsed=raw
+                else:
+                    raw=str(raw).strip()
+                    if raw.startswith("```"):
+                        raw=raw.split("\n",1)[-1]
+                        if raw.endswith("```"):
+                            raw=raw[:-3].strip()
+                    parsed=json.loads(raw)
+                break
+            except json.JSONDecodeError:
+                if attempt:
+                    raise
+                logger.warning("Local model returned incomplete JSON for %s; retrying once", req.language_code)
+        if parsed is None:
+            return None
         if isinstance(parsed,dict):
             if isinstance(parsed.get("questions"),list):
                 parsed=parsed["questions"]

@@ -139,8 +139,39 @@ def seed_expanded_curriculum(db_path: str | Path) -> dict[str, int]:
                         "INSERT INTO courses(language_code,title,level,description,published) VALUES(?,?,?,?,1)",
                         (code, f"{prefix} {level} — {level_label}", level, description),
                     ).lastrowid
+                # Repair older lessons in place: retain IDs/progress and meaningful text,
+                # while ensuring every visible lesson has an exercise, reference answer,
+                # and a sufficiently complete explanation.
+                legacy_rows = db.execute(
+                    "SELECT id,title,body,exercise,answer,position FROM lessons WHERE course_id=? ORDER BY position,id",
+                    (course_id,),
+                ).fetchall()
+                level_index = list(level_map).index(level)
+                for row in legacy_rows:
+                    position = max(1, int(row["position"] or 1))
+                    topic = TOPICS[(position - 1 + level_index * 7) % len(TOPICS)]
+                    skill_index = (position - 1 + level_index) % len(SKILLS)
+                    phrase_index = ((position - 1) * 3 + level_index * 5) % len(PHRASES[code])
+                    generated_title, generated_body, generated_exercise, generated_answer = _lesson_text(
+                        code, level, topic, skill_index, phrase_index
+                    )
+                    title = (row["title"] or "").strip() or generated_title
+                    exercise = (row["exercise"] or "").strip() or generated_exercise
+                    answer = (row["answer"] or "").strip() or generated_answer
+                    body = (row["body"] or "").strip()
+                    if len(body) < 80:
+                        body = (body + "\n\n" if body else "") + generated_body
+                    if answer not in body:
+                        body += f"\n\n**Réponse de référence :** {answer}"
+                    if (title, body, exercise, answer) != (
+                        row["title"], row["body"], row["exercise"], row["answer"]
+                    ):
+                        db.execute(
+                            "UPDATE lessons SET title=?,body=?,exercise=?,answer=? WHERE id=?",
+                            (title, body, exercise, answer, row["id"]),
+                        )
                 existing = db.execute("SELECT COUNT(*) AS n FROM lessons WHERE course_id=?", (course_id,)).fetchone()["n"]
-                # Existing courses may have a few authored lessons. Never delete or overwrite them.
+                # Add only missing positions. Existing lesson IDs and progress are preserved.
                 for position in range(existing + 1, target_count + 1):
                     global_index = position - 1
                     topic = TOPICS[(global_index + list(level_map).index(level) * 7) % len(TOPICS)]

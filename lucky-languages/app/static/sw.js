@@ -1,4 +1,4 @@
-const CACHE = "lucky-academy-shell-v1";
+const CACHE = "linguabloom-academy-shell-v2";
 const SHELL = ["/", "/static/manifest.webmanifest", "/static/icon.svg"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
