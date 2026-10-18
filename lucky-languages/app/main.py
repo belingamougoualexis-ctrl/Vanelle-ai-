@@ -568,3 +568,7 @@ def submit_exam(attempt_id:int,user=Depends(require_roles("student"))):
   db.execute("UPDATE exam_attempts SET status='submitted' WHERE id=?",(attempt_id,))
   db.execute("INSERT INTO grades(student_id,subject,assessment,score,coefficient) VALUES(?,?,?,?,1)",(user["id"],"Langue "+attempt["language_code"].upper(),"Examen "+str(attempt_id),score))
  return {"attempt_id":attempt_id,"status":"submitted","correct":correct,"total":count,"score_out_of_20":score}
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+ return Response((BASE/"static"/"sw.js").read_text(encoding="utf-8"),media_type="application/javascript",headers={"Service-Worker-Allowed":"/","Cache-Control":"no-cache"})
