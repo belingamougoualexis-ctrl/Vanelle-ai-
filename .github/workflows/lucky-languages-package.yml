@@ -1,0 +1,25 @@
+name: Package Lucky Languages Academy
+on:
+  push:
+    branches: ["feat/lucky-languages-academy"]
+    paths:
+      - "lucky-languages/**"
+      - ".github/workflows/lucky-languages-package.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source package
+        run: |
+          cd lucky-languages
+          zip -r ../Lucky-Languages-Academy.zip . -x "*.db" "*.pyc" "*/__pycache__/*" "*/uploads/*" ".venv/*"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lucky-Languages-Academy
+          path: Lucky-Languages-Academy.zip
+          if-no-files-found: error
+          retention-days: 30
