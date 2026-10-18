@@ -7,7 +7,7 @@ from app.main import app
 @pytest.mark.ai_integration
 def test_real_local_model_generates_valid_language_exercise():
     endpoint = os.getenv("LUCKY_OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-    model = os.getenv("LUCKY_PEDAGOGY_MODEL", "qwen2.5:0.5b")
+    model = os.getenv("LUCKY_PEDAGOGY_MODEL", "qwen2.5:1.5b")
     # Do not silently accept the offline fallback: this test requires a genuine model response.
     response = TestClient(app).post("/api/pedagogy/generate", json={
         "language_code": "en",
