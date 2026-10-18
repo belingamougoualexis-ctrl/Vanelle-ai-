@@ -118,7 +118,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     prompt = {"system_role":system,"target_language":method["name"],"level":req.level,"skill":req.skill,
               "topic":req.topic,"learner_language":req.learner_language,"language_method":method["method"],
               "learner_difficulties":req.wrong_answers,"count":req.count}
-    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":"json"},ensure_ascii=False).encode()
+    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":"json","options":{"num_predict":384,"temperature":0.2}},ensure_ascii=False).encode()
     request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
