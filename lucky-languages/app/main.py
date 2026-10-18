@@ -45,7 +45,19 @@ def init_db():
   CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY,actor_id INTEGER,action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   """)
 @app.on_event("startup")
-def startup(): init_db()
+def startup():
+ init_db()
+ # Optional first-admin bootstrap: configure all three variables in the deployment environment.
+ # No default credentials are created.
+ admin_name=os.getenv("LUCKY_ADMIN_NAME")
+ admin_username=os.getenv("LUCKY_ADMIN_USERNAME")
+ admin_password=os.getenv("LUCKY_ADMIN_PASSWORD")
+ if admin_name and admin_username and admin_password and len(admin_password)>=16:
+  with db_session() as db:
+   existing=db.execute("SELECT id FROM users WHERE username=?",(admin_username.lower(),)).fetchone()
+   if not existing:
+    db.execute("INSERT INTO users(full_name,username,password_hash,role) VALUES(?,?,?,'admin')",
+                (admin_name,admin_username.lower(),password_hash(admin_password)))
 def password_hash(password):
  salt=secrets.token_bytes(16); digest=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,180000)
  return salt.hex()+"$"+digest.hex()
@@ -71,6 +83,8 @@ class GradeIn(BaseModel):
  coefficient:float=Field(gt=0,le=20)
 class ExamStartIn(BaseModel):
  language_code:str=Field(min_length=2,max_length=12)
+class RoleIn(BaseModel):
+ role:str=Field(pattern=r"^(student|teacher|admin)$")
 def current_user(authorization:Optional[str]=Header(default=None)):
  if not authorization or not authorization.startswith("Bearer "): raise HTTPException(401,"Authentification requise")
  token=authorization[7:].strip()
@@ -113,6 +127,14 @@ def logout(user=Depends(current_user),authorization:str=Header(...)):
  return {"ok":True}
 @app.get("/api/me")
 def me(user=Depends(current_user)): return user
+@app.post("/api/admin/users/{user_id}/role")
+def set_user_role(user_id:int,payload:RoleIn,user=Depends(require_roles("admin"))):
+ with db_session() as db:
+  target=db.execute("SELECT id FROM users WHERE id=?",(user_id,)).fetchone()
+  if not target: raise HTTPException(404,"Utilisateur introuvable")
+  db.execute("UPDATE users SET role=? WHERE id=?",(payload.role,user_id))
+  db.execute("INSERT INTO audit_log(actor_id,action,detail) VALUES(?,?,?)",(user["id"],"user_role_changed",f"user_id={user_id};role={payload.role}"))
+ return {"user_id":user_id,"role":payload.role}
 @app.post("/api/grades",status_code=201)
 def add_grade(payload:GradeIn,user=Depends(require_roles("teacher","admin"))):
  with db_session() as db:
