@@ -143,3 +143,20 @@ def test_real_exam_questions_answers_server_grading_and_exit(client):
  assert submitted.status_code==200 and submitted.json()["status"]=="submitted"
  assert client.post(f"/api/exams/{attempt}/submit",headers=headers).status_code==409
  assert len(client.get("/api/bulletin",headers=headers).json()["grades"])==1
+
+
+def test_cefr_course_paths_cover_a1_to_c2_and_additional_language_starters(client):
+ courses = client.get("/api/courses")
+ assert courses.status_code == 200
+ items = courses.json()["items"]
+ for code in ("en", "fr", "es"):
+  levels = {item["level"] for item in items if item["language_code"] == code}
+  assert {"A1", "A2", "B1", "B2", "C1", "C2"} <= levels
+  for item in items:
+   if item["language_code"] == code and item["level"] in {"A2", "B1", "B2", "C1", "C2"}:
+    detail = client.get(f"/api/courses/{item['id']}")
+    assert detail.status_code == 200
+    assert len(detail.json()["lessons"]) >= 3
+    assert all(lesson["title"] and lesson["body"] and lesson["exercise"] and lesson["position"] for lesson in detail.json()["lessons"])
+ for code in ("de", "pt", "zh", "ja", "ko", "ar", "ru"):
+  assert any(item["language_code"] == code and item["level"] == "A1" for item in items)
