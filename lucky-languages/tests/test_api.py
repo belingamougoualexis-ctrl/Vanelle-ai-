@@ -224,3 +224,40 @@ def test_every_expanded_curriculum_lesson_is_exposed_and_has_a_reference_answer(
             lesson_total += len(level_lessons)
         assert lesson_total >= sum(levels.values()), f"Insufficient total lessons for {language_code}"
 
+def test_resource_download_supports_byte_ranges_for_resume(client):
+ teacher = register(client, "teacher_download", role="teacher")
+ payload = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ uploaded = client.post(
+     "/api/resources?title=Lesson%20file&description=range%20test",
+     headers=auth(teacher["access_token"]),
+     files={"file": ("lesson.txt", payload, "text/plain")},
+ )
+ assert uploaded.status_code == 201, uploaded.text
+ resource_id = uploaded.json()["id"]
+ first = client.get(
+     f"/api/resources/{resource_id}/download",
+     headers={**auth(teacher["access_token"]), "Range": "bytes=0-9"},
+ )
+ assert first.status_code == 206, first.text
+ assert first.content == payload[:10]
+ assert first.headers.get("content-range") == f"bytes 0-9/{len(payload)}"
+ resumed = client.get(
+     f"/api/resources/{resource_id}/download",
+     headers={**auth(teacher["access_token"]), "Range": "bytes=10-19"},
+ )
+ assert resumed.status_code == 206, resumed.text
+ assert resumed.content == payload[10:20]
+ assert resumed.headers.get("content-range") == f"bytes 10-19/{len(payload)}"
+ assert client.get(f"/api/resources/{resource_id}/download", headers=auth(teacher["access_token"])).content == payload
+
+
+def test_pwa_root_worker_and_original_brand_icon_are_served(client):
+ worker = client.get("/sw.js")
+ assert worker.status_code == 200
+ assert "serviceWorker" not in worker.text
+ assert "fetch" in worker.text
+ icon = client.get("/static/icon.svg")
+ assert icon.status_code == 200
+ assert "LinguaBloom Academy" in icon.text
+ assert client.get("/health").json()["service"] == "linguabloom-academy-api"
+
