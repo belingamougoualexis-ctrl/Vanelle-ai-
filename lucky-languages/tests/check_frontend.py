@@ -9,7 +9,7 @@ html = (root / "app" / "static" / "index.html").read_text(encoding="utf-8")
 scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.DOTALL)
 if not scripts:
     raise SystemExit("No inline JavaScript found")
-external_scripts = [root / "app" / "static" / "practice.js", root / "app" / "static" / "teachers-3d.js"]
+external_scripts = [root / "app" / "static" / "practice.js", root / "app" / "static" / "teachers-3d.js", root / "app" / "static" / "lesson-audio.js"]
 node = shutil.which("node")
 if not node:
     raise SystemExit("Node.js is required to syntax-check the frontend")
@@ -23,4 +23,4 @@ for index, source in enumerate(["\n".join(scripts)] + [path.read_text(encoding="
         print(result.stdout)
         print(result.stderr)
         raise SystemExit(result.returncode)
-print("Inline, adaptive-practice, and 3D teacher JavaScript syntax: OK")
+print("Inline, adaptive-practice, 3D teacher, and lesson audio JavaScript syntax: OK")
