@@ -132,11 +132,20 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
         # Small models need a direct, narrow Mandarin task; long multilingual
         # instructions often produce invalid schema or omit required pinyin.
         prompt["system_role"] = (
-            "You are a Mandarin teacher. Output JSON only. Make one easy HSK1/A1 "
-            "Mandarin vocabulary question. Use a real Chinese word, three Chinese "
-            "answer options, and set answer to exactly one option. Include a short "
-            "French explanation, pinyin with tone marks, and the French meaning. "
-            "Do not include markdown."
+            "You are a Mandarin teacher. Output one valid JSON object only, no markdown. "
+            "Create exactly one very easy HSK1/A1 multiple-choice question about one common "
+            "Mandarin word. The question and all three options must be Chinese characters. "
+            "The answer field must exactly copy one of the three options. "
+            "Include the exact keys question, options, answer, explanation, skill, character, "
+            "pinyin, meaning, writing_prompt. pinyin must use tone marks. meaning and explanation "
+            "must be in French. Keep every value short. Example structure: "
+            "{\\\"questions\\\":[{\\\"question\\\":\\\"你好 signifie quoi ?\\\","
+            "\\\"options\\\":[\\\"Bonjour\\\",\\\"Merci\\\",\\\"Au revoir\\\"],"
+            "\\\"answer\\\":\\\"Bonjour\\\",\\\"explanation\\\":\\\"你好 signifie bonjour.\\\","
+            "\\\"skill\\\":\\\"vocabulary\\\",\\\"character\\\":\\\"你好\\\","
+            "\\\"pinyin\\\":\\\"nǐ hǎo\\\",\\\"meaning\\\":\\\"bonjour\\\","
+            "\\\"writing_prompt\\\":\\\"Recopie 你好.\\\"}]}. "
+            "Never add prose outside the JSON."
         )
         prompt["target_language"] = "Mandarin Chinese (中文)"
         prompt["topic"] = req.topic or "greetings and everyday words"
