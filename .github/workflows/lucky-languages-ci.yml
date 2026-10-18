@@ -1,7 +1,7 @@
 name: Lucky Languages Academy CI
 on:
   push:
-    branches: ["feat/lucky-languages-academy", "feat/lucky-adaptive-language-ai", "feat/lucky-bundled-local-ai-e2e", "feat/expanded-multilevel-curriculum"]
+    branches: ["main", "feat/lucky-languages-academy", "feat/lucky-adaptive-language-ai", "feat/lucky-bundled-local-ai-e2e", "feat/expanded-multilevel-curriculum"]
     paths:
       - "lucky-languages/**"
       - ".github/workflows/lucky-languages-ci.yml"
