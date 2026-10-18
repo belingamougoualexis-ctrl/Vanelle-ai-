@@ -1,0 +1,19 @@
+(function(){
+'use strict';
+const LOCALES={en:'en-US',fr:'fr-FR',es:'es-ES',de:'de-DE',pt:'pt-PT',zh:'zh-CN',ja:'ja-JP',ko:'ko-KR',ar:'ar-SA',ru:'ru-RU',it:'it-IT',nl:'nl-NL'};
+function makeButton(label,handler,secondary){const b=document.createElement('button');b.type='button';b.textContent=label;b.className=secondary?'secondary smallbtn':'smallbtn';b.style.margin='4px';b.addEventListener('click',handler);return b}
+function status(message,error){const el=document.getElementById('lessonStatus');if(el){el.textContent=message;el.className=error?'status error':'status'}}
+function speak(text,lang){if(!text)return status('Aucun texte à écouter.',true);if(!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined')return status('Lecture vocale non prise en charge par ce navigateur. Essaie Chrome ou Edge.',true);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=LOCALES[lang]||lang||'fr-FR';u.rate=0.88;const voices=window.speechSynthesis.getVoices();const v=voices.find(x=>x.lang.toLowerCase()===u.lang.toLowerCase())||voices.find(x=>x.lang.toLowerCase().startsWith(u.lang.split('-')[0].toLowerCase()));if(v)u.voice=v;u.onstart=()=>status('Lecture audio en cours · '+u.lang);u.onend=()=>status('Lecture terminée. Tu peux réécouter ou répondre à voix haute.');u.onerror=()=>status('Voix indisponible pour cette langue sur cet appareil. Vérifie les voix installées.',true);window.speechSynthesis.speak(u)}
+function dictate(input,lang,answerStatus){const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Recognition){answerStatus.textContent='Dictée vocale non prise en charge. Utilise Chrome sur Android ou saisis ta réponse.';answerStatus.className='status error';return}const r=new Recognition();r.lang=LOCALES[lang]||lang||'fr-FR';r.interimResults=false;r.maxAlternatives=1;answerStatus.textContent='Écoute… autorise le microphone si demandé.';answerStatus.className='status';r.onresult=e=>{input.value=e.results[0][0].transcript;answerStatus.textContent='Réponse reconnue. Appuie sur Vérifier ma réponse.';answerStatus.className='status'};r.onerror=e=>{answerStatus.textContent=e.error==='not-allowed'?'Microphone refusé : autorise-le dans les paramètres du navigateur.':'Dictée indisponible ('+e.error+'). Saisis ta réponse.';answerStatus.className='status error'};try{r.start()}catch(e){answerStatus.textContent='Impossible de démarrer le microphone. Réessaie.';answerStatus.className='status error'}}
+window.installLessonAudioControls=function(id,language,lesson){
+ const sections=document.querySelectorAll('#lessonDetail .lesson-explanation, #lessonDetail .lesson-exercise');
+ if(sections.length<2)return;
+ const body=lesson.body||'',exercise=lesson.exercise||'';
+ const first=document.createElement('div');first.className='row';first.setAttribute('aria-label','Commandes audio de la leçon');
+ first.append(makeButton('▶ Écouter la leçon',()=>speak(body,language),false),makeButton('■ Arrêter',()=>{if('speechSynthesis'in window)window.speechSynthesis.cancel();status('Lecture arrêtée.')},true));sections[0].prepend(first);
+ const second=document.createElement('div');second.className='row';second.setAttribute('aria-label','Commandes audio de l’exercice');
+ second.append(makeButton('🔊 Écouter l’exercice',()=>speak(exercise,language),false));sections[1].prepend(second);
+ const input=document.getElementById('lessonAnswer_'+id),answerStatus=document.getElementById('answerStatus_'+id);
+ if(input&&answerStatus){const voice=makeButton('🎙 Répondre à voix haute',()=>dictate(input,language,answerStatus),true);input.parentElement.insertAdjacentElement('afterend',voice)}
+};
+})();
