@@ -118,7 +118,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     prompt = {"system_role":system,"target_language":method["name"],"level":req.level,"skill":req.skill,
               "topic":req.topic,"learner_language":req.learner_language,"language_method":method["method"],
               "learner_difficulties":req.wrong_answers,"count":req.count}
-    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":"json","options":{"num_predict":384,"temperature":0.2}},ensure_ascii=False).encode()
+    response_schema = {"type":"object","properties":{"questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"options":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},"answer":{"type":"string"},"explanation":{"type":"string"},"skill":{"type":"string"}},"required":["question","options","answer","explanation","skill"]},"minItems":1,"maxItems":req.count}},"required":["questions"]}\n    # Constrain the model output to a compact schema; this avoids truncated, free-form JSON.\n    prompt["output_instruction"] = "Return exactly one question. Keep question and explanation short. Options must be 3 short strings. No markdown."\n    payload = json.dumps({"model":model,"prompt":json.dumps(prompt,ensure_ascii=False),"stream":False,"format":response_schema,"options":{"num_predict":512,"temperature":0.1}},ensure_ascii=False).encode()
     request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
     try:
         with urllib.request.urlopen(request, timeout=180) as response:
