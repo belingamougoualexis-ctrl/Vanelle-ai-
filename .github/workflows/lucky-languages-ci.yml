@@ -27,4 +27,5 @@ jobs:
           cache-dependency-path: lucky-languages/requirements.txt
       - run: pip install -r requirements.txt
       - run: python -m compileall -q app tests
+      - run: python tests/check_frontend.py
       - run: pytest -q
