@@ -15,6 +15,20 @@ const LUCKY_TEACHERS=[
 {id:'white-f-1',name:'Professeure Clara',detail:'Grammaire · Business',model:'avatars/White/White_F_1_Busi.glb',image:'images/White_F_1_Busi.jpg'},
 {id:'mena-m-1',name:'Professeur Sami',detail:'Vocabulaire · Business',model:'avatars/MENA/MENA_M_1_Busi.glb',image:'images/MENA_M_1_Busi.jpg'}
 ];
+
+function renderInlineLessonTeacher(host,languageCode,lessonId){
+ if(!host)return;
+ const preferred={en:'black-f-1',fr:'black-m-1',es:'hispanic-m-1',de:'white-f-1',pt:'white-f-1',zh:'asian-f-1',ja:'asian-f-1',ko:'asian-f-1',ar:'mena-m-1',ru:'hispanic-m-1'};
+ const teacher=LUCKY_TEACHERS.find(x=>x.id===preferred[String(languageCode||'').toLowerCase()])||LUCKY_TEACHERS[0];
+ const frameId='lessonTeacherFrame_'+String(lessonId).replace(/[^a-zA-Z0-9_-]/g,'');
+ host.innerHTML='<div class="inline-teacher-avatar"><iframe id="'+frameId+'" title="Professeur 3D '+teacher.name+'" sandbox="allow-scripts" loading="eager" referrerpolicy="no-referrer"></iframe></div><div><h3>'+teacher.name+' · ton professeur 3D</h3><p>Il est chargé automatiquement pour cette leçon. Lis l’explication, réponds à l’exercice puis indique si tu as compris.</p><div class="inline-teacher-status" id="'+frameId+'_status" role="status" aria-live="polite">Chargement du professeur 3D…</div></div>';
+ const frame=document.getElementById(frameId),status=document.getElementById(frameId+'_status');
+ if(!frame)return;
+ const url=LUCKY_AVATAR_BASE+teacher.model;
+ frame.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}model-viewer{display:block;width:100%;height:100%;background:transparent;--poster-color:transparent}#state{position:absolute;bottom:4px;left:4px;right:4px;text-align:center;color:white;font:10px system-ui;background:#242452b8;border-radius:6px;padding:4px;box-sizing:border-box}</style></head><body><model-viewer id="mv" src="'+url+'" alt="Professeur 3D '+teacher.name+'" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1" exposure="1.05" environment-image="neutral" camera-orbit="0deg 75deg auto" field-of-view="30deg"></model-viewer><div id="state">Chargement du modèle…</div><script type="module">import "https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js";const mv=document.getElementById("mv"),state=document.getElementById("state");mv.addEventListener("load",()=>state.textContent="Professeur prêt · fais glisser pour tourner");mv.addEventListener("error",()=>state.textContent="Modèle indisponible · vérifie Internet");</script></body></html>';
+ frame.addEventListener('load',()=>{if(status)status.textContent='Le professeur 3D se charge automatiquement.'},{once:true});
+}
+
 function renderTeacherStudio(c){
  cleanupTeacherStudio();
  const gallery=LUCKY_TEACHERS.map(t=>'<article class="teacher-card"><img loading="lazy" src="'+LUCKY_AVATAR_BASE+t.image+'" alt="Aperçu du modèle 3D '+t.name+'"><div style="min-width:0"><strong>'+t.name+'</strong><small>'+t.detail+'</small><button type="button" onclick="loadTeacherPreset(\''+t.id+'\')">Choisir</button></div></article>').join('');
