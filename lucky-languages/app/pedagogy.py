@@ -7,6 +7,7 @@ exam papers are never copied into the built-in bank.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 import urllib.error
@@ -17,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/pedagogy", tags=["pedagogy"])
+logger = logging.getLogger(__name__)
 
 LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2", "beginner", "primary", "secondary", "be_pc"}
 LANGUAGE_METHODS: dict[str, dict[str, Any]] = {
@@ -164,8 +166,12 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
                 if req.language_code=="zh" and not all(item.get(k) for k in ("pinyin","meaning")):
                     continue
                 valid.append(item)
-        return valid if len(valid)>=1 else None
-    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError):
+        if not valid:
+            logger.warning("Local model %s returned no schema-valid questions for language=%s level=%s", model, req.language_code, req.level)
+            return None
+        return valid
+    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError) as exc:
+        logger.warning("Local model request/parse failed (%s): %s", type(exc).__name__, exc)
         return None
 
 def generate_questions(req: GenerateRequest) -> dict[str, Any]:
