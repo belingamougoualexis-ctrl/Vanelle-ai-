@@ -957,3 +957,7 @@ def submit_exam(attempt_id:int,user=Depends(require_roles("student"))):
 @app.get("/sw.js", include_in_schema=False)
 def service_worker():
  return Response((BASE/"static"/"sw.js").read_text(encoding="utf-8"),media_type="application/javascript",headers={"Service-Worker-Allowed":"/","Cache-Control":"no-cache"})
+
+# Adaptive language exercises and source-aware exam preparation.
+from .pedagogy import router as pedagogy_router
+app.include_router(pedagogy_router)
