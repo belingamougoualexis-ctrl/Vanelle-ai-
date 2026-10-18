@@ -27,7 +27,9 @@ def auth(token): return {"Authorization":f"Bearer {token}"}
 
 def test_health_and_catalogue(client):
  assert client.get("/health").json()["status"]=="ok"
- assert any(x["code"]=="fr" for x in client.get("/api/languages").json()["items"])
+ catalogue=client.get("/api/languages").json()["items"]
+ assert any(x["code"]=="fr" for x in catalogue)
+ assert len(catalogue)>=200
 
 def test_weighted_bulletin_and_private_access(client):
  s=register(client)
