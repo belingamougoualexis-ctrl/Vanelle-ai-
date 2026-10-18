@@ -25,7 +25,34 @@ function tile(title,body,tag='',actions=''){return '<article class="tile">'+(tag
 function button(label,onclick,secondary=false){return '<button class="'+(secondary?'secondary':'')+' smallbtn" onclick="'+onclick+'">'+esc(label)+'</button>'}
 function requireLogin(){if(!me){return panel('Connectez-vous pour continuer','Les données scolaires sont privées. Créez un compte ou connectez-vous dans le formulaire au-dessus.')}return ''}
 async function go(view){currentView=view;document.querySelectorAll('#nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const c=$('#content');c.innerHTML=panel('Chargement…');try{switch(view){case'courses':await renderCourses(c);break;case'progress':await renderProgress(c);break;case'bulletin':await renderBulletin(c);break;case'classes':await renderClasses(c);break;case'messages':await renderMessages(c);break;case'schedule':await renderSchedule(c);break;case'announcements':await renderAnnouncements(c);break;case'library':await renderLibrary(c);break;case'admin':await renderAdmin(c);break;}}catch(e){c.innerHTML=panel('Impossible de charger cette section',e.message)}} 
-async function renderCourses(c){const d=await api('/api/courses');$('#courseCount').textContent=d.items.length;let body='<div class="grid">'+d.items.map(x=>tile(x.title,x.description,x.level,button('Ouvrir le cours','openCourse('+x.id+')'))).join('')+'</div>';c.innerHTML=panel('Cours et leçons','Cours disponibles et contenus de démarrage. Une langue listée au catalogue n’implique pas que tous ses niveaux soient déjà couverts.',body)+'<div id="lessonArea"></div>'}
+ 
+let activeExam=null, examCancelHandler=null;
+async function cancelActiveExam(){
+ if(!activeExam||!token)return;
+ const id=activeExam;activeExam=null;
+ try{await fetch('/api/exams/'+id+'/exit',{method:'POST',headers:{Authorization:'Bearer '+token},keepalive:true})}catch{}
+ const area=$('#examArea');if(area)area.innerHTML='<div class="status error">Tentative annulée car la page a été quittée ou masquée. Redémarre pour recevoir un nouvel ordre de questions.</div>';
+}
+async function showExam(id){
+ const d=await api('/api/exams/'+id+'/questions');activeExam=id;
+ const area=$('#examArea');
+ area.innerHTML='<div class="lessonbody"><h3>Examen en cours</h3><p>Temps maximal : 20 minutes. Ne quitte pas cette page.</p>'+d.questions.map((q,i)=>'<div class="listitem"><h3>'+ (i+1)+'. '+esc(q.question)+'</h3>'+q.options.map(o=>'<label style="display:block;padding:7px"><input style="width:auto" type="radio" name="examq_'+q.id+'" value="'+esc(o)+'"> '+esc(o)+'</label>').join('')+'</div>').join('')+'<button onclick="submitActiveExam()">Terminer et corriger</button><button class="danger" onclick="cancelActiveExam()">Quitter l’examen</button><div id="examResult" class="status"></div></div>';
+ if(examCancelHandler)document.removeEventListener('visibilitychange',examCancelHandler);
+ examCancelHandler=()=>{if(document.visibilityState==='hidden')cancelActiveExam()};
+ document.addEventListener('visibilitychange',examCancelHandler);
+}
+async function submitActiveExam(){
+ if(!activeExam)return;const id=activeExam, area=$('#examArea');
+ try{
+  const qs=await api('/api/exams/'+id+'/questions');
+  for(const q of qs.questions){const selected=document.querySelector('input[name="examq_'+q.id+'"]:checked');if(selected)await api('/api/exams/'+id+'/answer',{method:'POST',body:JSON.stringify({question_id:q.id,answer:selected.value})})}
+  const result=await api('/api/exams/'+id+'/submit',{method:'POST'});
+  activeExam=null;if(examCancelHandler)document.removeEventListener('visibilitychange',examCancelHandler);
+  area.innerHTML='<div class="lessonbody"><h3>Résultat</h3><p>Note : '+esc(result.score_out_of_20)+'/20</p><p>Réponses correctes : '+esc(result.correct)+' sur '+esc(result.total)+'</p><p>Le résultat est ajouté au bulletin.</p></div>';
+ }catch(e){const r=$('#examResult');if(r){r.textContent=e.message;r.classList.add('error')}else area.innerHTML='<div class="status error">'+esc(e.message)+'</div>'}
+}
+
+async function renderCourses(c){const d=await api('/api/courses');$('#courseCount').textContent=d.items.length;let body='<div class="grid">'+d.items.map(x=>tile(x.title,x.description,x.level,button('Ouvrir le cours','openCourse('+x.id+')'))).join('')+'</div>';let exams='<div class="panel"><h2>Évaluation chronométrée</h2><p>20 minutes maximum. Quitter la page ou masquer l’application annule la tentative et exige un redémarrage avec un ordre différent des questions.</p><form id="examStartForm"><div class="field"><label>Langue</label><select name="language_code"><option value="en">English</option><option value="fr">Français</option><option value="es">Español</option></select></div><button>Démarrer l’examen</button><div class="status" id="examStatus"></div></form><div id="examArea"></div></div>';c.innerHTML=panel('Cours et leçons','Cours disponibles et contenus de démarrage. Une langue listée au catalogue n’implique pas que tous ses niveaux soient déjà couverts.',body)+exams+'<div id="lessonArea"></div>';$('#examStartForm').onsubmit=async e=>{e.preventDefault();if(!me){setStatus('examStatus','Connectez-vous pour passer un examen.',true);return}try{const d=await api('/api/exams/start',{method:'POST',body:JSON.stringify({language_code:new FormData(e.target).get('language_code')})});await showExam(d.attempt_id)}catch(x){setStatus('examStatus',x.message,true)}}}
 async function openCourse(id){activeCourse=id;const area=$('#lessonArea');if(!area)return;try{const d=await api('/api/courses/'+id);area.innerHTML=panel(d.course.title,d.course.description,'<div class="grid">'+d.lessons.map(l=>tile(l.title,l.body,'Leçon '+l.position,button('Étudier','openLesson('+l.id+')'))).join('')+'</div>')+'<div id="lessonDetail"></div>'}catch(e){area.innerHTML=panel('Erreur',e.message)}}
 async function openLesson(id){try{const d=await api('/api/courses/'+activeCourse);const l=d.lessons.find(x=>x.id===id);if(!l)return;const a=$('#lessonDetail');a.innerHTML=panel(l.title,'Lis la leçon, essaie l’exercice, puis indique si tu as terminé.','<div class="lessonbody">'+esc(l.body)+'\n\nExercice\n'+esc(l.exercise)+'</div><div class="row">'+button('Marquer terminée','markLesson('+id+')')+button('Je n’ai pas compris','showDifficulty('+id+')',true)+'</div><div id="difficultyArea"></div><div class="status" id="lessonStatus"></div>');a.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){alert(e.message)}}
 async function markLesson(id){if(!me){alert('Connectez-vous pour enregistrer votre progression.');return}try{await api('/api/lessons/'+id+'/progress',{method:'POST',body:JSON.stringify({status:'completed',score:null})});setStatus('lessonStatus','Leçon enregistrée dans votre progression.')}catch(e){setStatus('lessonStatus',e.message,true)}}
