@@ -6,6 +6,8 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 html = (root / "app" / "static" / "index.html").read_text(encoding="utf-8")
+if 'id="languageSearch" type="search"' not in html or "renderLanguageCatalog(langData.items,q)" not in html or "#courseResults .tile" not in html:
+    raise SystemExit("Shared live search for course cards and language catalogue is missing")
 scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.DOTALL)
 if not scripts:
     raise SystemExit("No inline JavaScript found")
