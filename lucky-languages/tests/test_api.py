@@ -9,7 +9,10 @@ from app.main import app, db_session, password_hash
 def client():
  with TestClient(app) as c:
   with db_session() as db:
-   db.execute("DELETE FROM audit_log"); db.execute("DELETE FROM exam_attempts")
+   db.execute("DELETE FROM audit_log"); db.execute("DELETE FROM messages"); db.execute("DELETE FROM submissions")
+   db.execute("DELETE FROM assignments"); db.execute("DELETE FROM schedule"); db.execute("DELETE FROM announcements")
+   db.execute("DELETE FROM resources"); db.execute("DELETE FROM lesson_progress"); db.execute("DELETE FROM difficulties")
+   db.execute("DELETE FROM enrollments"); db.execute("DELETE FROM classes"); db.execute("DELETE FROM exam_attempts")
    db.execute("DELETE FROM grades"); db.execute("DELETE FROM sessions"); db.execute("DELETE FROM users")
   yield c
 
@@ -77,3 +80,47 @@ def test_admin_role_management_and_teacher_grade_entry(client):
  assert grade.status_code==201
  bulletin=client.get(f"/api/bulletin?student_id={student['user']['id']}",headers=teacher_headers)
  assert bulletin.status_code==200 and bulletin.json()["average"]==15
+
+def test_courses_progress_and_difficulty_memory(client):
+ student=register(client)
+ courses=client.get("/api/courses")
+ assert courses.status_code==200 and len(courses.json()["items"])>=3
+ course=courses.json()["items"][0]
+ detail=client.get(f"/api/courses/{course['id']}")
+ assert detail.status_code==200 and len(detail.json()["lessons"])>=3
+ lesson=detail.json()["lessons"][0]
+ progress=client.post(f"/api/lessons/{lesson['id']}/progress",headers=auth(student["access_token"]),json={"status":"completed","score":90})
+ assert progress.status_code==200
+ difficulty=client.post("/api/difficulties",headers=auth(student["access_token"]),json={"lesson_id":lesson["id"],"topic":"verbes","question":"Je ne comprends pas la règle"})
+ assert difficulty.status_code==201 and "étape" in difficulty.json()["explanation"]
+ mine=client.get("/api/progress",headers=auth(student["access_token"]))
+ assert len(mine.json()["lessons"])==1 and len(mine.json()["difficulties"])==1
+
+def test_class_assignment_submission_and_scoped_messages(client):
+ teacher=register(client,"teacher_user")
+ student=register(client,"student_user")
+ with db_session() as db:
+  db.execute("UPDATE users SET role='teacher' WHERE id=?",(teacher["user"]["id"],))
+ teacher_login=client.post("/api/auth/login",json={"username":"teacher_user","password":"correct-horse-battery"})
+ th=auth(teacher_login.json()["access_token"]); sh=auth(student["access_token"])
+ created=client.post("/api/classes",headers=th,json={"name":"Groupe A","language_code":"fr","level":"A1"})
+ assert created.status_code==201
+ cls=created.json()
+ joined=client.post("/api/classes/join",headers=sh,json={"join_code":cls["join_code"]})
+ assert joined.status_code==200
+ assignment=client.post(f"/api/classes/{cls['id']}/assignments",headers=th,json={"title":"Devoir 1","instructions":"Écris trois phrases."})
+ assert assignment.status_code==201
+ assert client.get(f"/api/classes/{cls['id']}/assignments",headers=sh).status_code==200
+ submitted=client.post(f"/api/assignments/{assignment.json()['id']}/submit",headers=sh,json={"answer":"Je suis élève. J'apprends. Je progresse."})
+ assert submitted.status_code==201
+ assert len(client.get(f"/api/classes/{cls['id']}/submissions",headers=th).json()["items"])==1
+ sent=client.post("/api/messages",headers=sh,json={"class_id":cls["id"],"body":"Bonjour à tous"})
+ assert sent.status_code==201
+ assert len(client.get(f"/api/messages?class_id={cls['id']}",headers=th).json()["items"])==1
+
+def test_pdf_bulletin_and_role_protected_admin(client):
+ student=register(client)
+ pdf=client.get("/api/bulletin.pdf",headers=auth(student["access_token"]))
+ assert pdf.status_code==200 and pdf.headers["content-type"]=="application/pdf"
+ assert pdf.content.startswith(b"%PDF")
+ assert client.get("/api/admin/overview",headers=auth(student["access_token"])).status_code==403
