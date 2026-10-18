@@ -64,3 +64,17 @@ def test_invalid_level_is_rejected():
         "language_code":"en", "level":"expert", "count":1
     })
     assert response.status_code == 422
+
+
+def test_all_supported_language_exercise_banks_return_valid_questions():
+    data = client.get("/api/pedagogy/languages")
+    assert data.status_code == 200
+    for item in data.json()["items"]:
+        response = client.post("/api/pedagogy/generate", json={
+            "language_code": item["code"], "level": "A1", "skill": "mixed",
+            "count": 3, "topic": "daily life", "use_local_ai": False
+        })
+        assert response.status_code == 200, item["code"]
+        questions = response.json()["questions"]
+        assert len(questions) == 3
+        assert all(q.get("question") and q.get("options") and q.get("answer") in q["options"] for q in questions)
