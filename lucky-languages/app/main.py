@@ -162,6 +162,8 @@ def bulletin(student_id:Optional[int]=None,user=Depends(current_user)):
 def start_exam(payload:ExamStartIn,user=Depends(require_roles("student"))):
  if not any(item["code"]==payload.language_code for item in LANGUAGES): raise HTTPException(404,"Langue absente du catalogue initial")
  with db_session() as db:
+  if not db.execute("SELECT id FROM exam_questions WHERE language_code=? LIMIT 1",(payload.language_code,)).fetchone():
+   raise HTTPException(422,"Aucune banque d’examen vérifiée n’est encore disponible pour cette langue.")
   cur=db.execute("INSERT INTO exam_attempts(student_id,language_code,status,question_seed) VALUES(?,?,'in_progress',?)",(user["id"],payload.language_code,secrets.randbelow(2**31)))
  return {"attempt_id":cur.lastrowid,"status":"in_progress","message":"La banque de questions vérifiées doit être ajoutée avant d'activer de vrais examens."}
 @app.post("/api/exams/{attempt_id}/exit")
