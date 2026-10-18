@@ -3,7 +3,7 @@ import pytest
 DB_FILE=tempfile.NamedTemporaryFile(suffix=".sqlite3",delete=False); DB_FILE.close()
 os.environ["LUCKY_DB_PATH"]=DB_FILE.name
 from fastapi.testclient import TestClient
-from app.main import app, db_session
+from app.main import app, db_session, password_hash
 
 @pytest.fixture()
 def client():
@@ -56,3 +56,20 @@ def test_login_and_bad_password(client):
  assert client.post("/api/auth/login",json={"username":"student1","password":"correct-horse-battery"}).status_code==200
  assert client.post("/api/auth/login",json={"username":"student1","password":"wrong-password"}).status_code==401
  assert client.get("/api/me",headers=auth(s["access_token"])).status_code==200
+
+def test_admin_role_management_and_teacher_grade_entry(client):
+ student=register(client,"student_for_teacher")
+ with db_session() as db:
+  db.execute("INSERT INTO users(full_name,username,password_hash,role) VALUES(?,?,?,'admin')",
+             ("Admin Example","admin1",password_hash("admin-password-123456")))
+ admin_login=client.post("/api/auth/login",json={"username":"admin1","password":"admin-password-123456"})
+ assert admin_login.status_code==200
+ admin_headers=auth(admin_login.json()["access_token"])
+ promoted=client.post(f"/api/admin/users/{student['user']['id']}/role",headers=admin_headers,json={"role":"teacher"})
+ assert promoted.status_code==200
+ grade=client.post("/api/grades",headers=admin_headers,json={
+  "student_id":student["user"]["id"],"subject":"Français","assessment":"Évaluation 1","score":15,"coefficient":2
+ })
+ assert grade.status_code==201
+ bulletin=client.get(f"/api/bulletin?student_id={student['user']['id']}",headers=admin_headers)
+ assert bulletin.status_code==200 and bulletin.json()["average"]==15
