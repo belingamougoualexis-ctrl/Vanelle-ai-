@@ -80,14 +80,13 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Publish APK download
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feat/brand-download-resume-full-test'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: linguabloom-android-v1.0.0
           name: LinguaBloom Academy Android 1.0.0
           body: |
-            LinguaBloom Academy Android wrapper, built and verified by GitHub Actions.
-            Configure the URL of your running LinguaBloom Academy backend on first launch.
+            LinguaBloom Academy Android server-connected wrapper. Configure the URL of your running backend on first launch. This release does not include the offline course pack or a bundled local AI model.
           files: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
           overwrite_files: true
           make_latest: false
