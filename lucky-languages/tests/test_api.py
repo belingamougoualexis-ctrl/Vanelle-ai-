@@ -173,3 +173,54 @@ def test_course_lessons_expose_answer_for_interactive_self_check(client):
   detail = client.get(f"/api/courses/{starter['id']}").json()
   assert len(detail["lessons"]) >= 6
   assert all(isinstance(lesson["answer"], str) and lesson["answer"].strip() for lesson in detail["lessons"])
+
+def test_every_expanded_curriculum_lesson_is_exposed_and_has_a_reference_answer(client):
+    expected = {
+        "en": {"A1": 30, "A2": 35, "B1": 40, "B2": 45, "C1": 45, "C2": 55},
+        "fr": {"A1": 30, "A2": 35, "B1": 40, "B2": 45, "C1": 45, "C2": 55},
+        "es": {"A1": 30, "A2": 35, "B1": 40, "B2": 45, "C1": 45, "C2": 55},
+        "de": {"A1": 30, "A2": 35, "B1": 40, "B2": 45, "C1": 45, "C2": 55},
+        "pt": {"A1": 30, "A2": 35, "B1": 40, "B2": 45, "C1": 45, "C2": 55},
+        "zh": {"A1": 40, "A2": 45, "B1": 50, "B2": 50, "C1": 55, "C2": 60},
+        "ja": {"A1": 40, "A2": 45, "B1": 50, "B2": 50, "C1": 55, "C2": 60},
+        "ko": {"A1": 40, "A2": 45, "B1": 50, "B2": 50, "C1": 55, "C2": 60},
+        "ar": {"A1": 40, "A2": 45, "B1": 50, "B2": 50, "C1": 55, "C2": 60},
+        "ru": {"A1": 40, "A2": 45, "B1": 50, "B2": 50, "C1": 55, "C2": 60},
+    }
+    courses = client.get("/api/courses")
+    assert courses.status_code == 200
+    items = courses.json()["items"]
+    for language_code, levels in expected.items():
+        language_courses = [c for c in items if c["language_code"] == language_code]
+        assert {c["level"] for c in language_courses} >= set(levels)
+        lesson_total = 0
+        for level, minimum in levels.items():
+            level_courses = [c for c in language_courses if c["level"] == level]
+            level_lessons = []
+            for course in level_courses:
+                detail_response = client.get(f"/api/courses/{course['id']}")
+                assert detail_response.status_code == 200
+                detail = detail_response.json()
+                assert detail["course"]["language_code"] == language_code
+                assert detail["course"]["level"] == level
+                level_lessons.extend(detail["lessons"])
+            assert len(level_lessons) >= minimum, f"{language_code} {level}: {len(level_lessons)} < {minimum}"
+            assert all(
+                isinstance(lesson["title"], str) and lesson["title"].strip()
+                and isinstance(lesson["body"], str) and len(lesson["body"].strip()) >= 80
+                and isinstance(lesson["exercise"], str) and lesson["exercise"].strip()
+                and isinstance(lesson["answer"], str) and lesson["answer"].strip()
+                for lesson in level_lessons
+            ), f"Missing lesson content or answer in {language_code} {level}"
+            assert len({lesson["id"] for lesson in level_lessons}) == len(level_lessons)
+            # Procedurally expanded lessons expose the same reference phrase in
+            # the worked example, so every generated answer is checked end-to-end.
+            generated = [lesson for lesson in level_lessons if lesson["title"].startswith(level + " · ")]
+            assert generated, f"No expanded lessons found for {language_code} {level}"
+            assert all(lesson["answer"] in lesson["body"] for lesson in generated), (
+                f"Reference answer does not match worked example in {language_code} {level}"
+            )
+            assert all(lesson["exercise"].strip() for lesson in generated)
+            lesson_total += len(level_lessons)
+        assert lesson_total >= sum(levels.values()), f"Insufficient total lessons for {language_code}"
+

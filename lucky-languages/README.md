@@ -21,7 +21,7 @@ Open `http://127.0.0.1:8000`. API documentation is at `http://127.0.0.1:8000/doc
 
 - Each lesson includes an automatically loaded, language-matched 3D teacher avatar. The avatar library and Google model-viewer are served from public CDNs, so the first load requires Internet; a clear message appears if the model cannot load.
 - Learners can type an answer and check it, press **Compris** to save lesson completion, or press **Je n’ai pas compris** and identify the exact part that is unclear (explanation, example, exercise, vocabulary, or pronunciation).
-- English, French, and Spanish have original lesson content from A1 through C2, with six or more lessons per level. German, Portuguese, Mandarin, Japanese, Korean, Arabic, and Russian have expanded A1 starter paths. Content is original practice material, not an official certificate or replacement for a full human-reviewed course.
+- The ten supported study languages (English, French, Spanish, German, Portuguese, Mandarin Chinese, Japanese, Korean, Modern Standard Arabic and Russian) receive complete A1–C2 lesson paths. The seed targets at least 250 lessons per language for English/French/Spanish/German/Portuguese and at least 300 for Mandarin/Japanese/Korean/Arabic/Russian, distributed by level with more lessons in advanced tracks. Each lesson has an example, a guided exercise and a reference answer. These are structured practice lessons and should not be represented as independently human-reviewed or accredited. Content is original practice material, not an official certificate or replacement for a full human-reviewed course.
 - Course seeding is idempotent: on startup it adds missing lessons without resetting user progress.
 
 ## Docker — application + real local AI model
@@ -54,8 +54,8 @@ If the administrator account already exists, changing these variables does not o
 ## Learning paths
 
 - LinguaBloom Academy branding and a polished violet, mint, coral and warm-gold design.
-- CEFR A1–C2 learning paths for English, French and Spanish, with three authored lessons per level from A1 through C2.
-- Introductory courses for German, Portuguese, Mandarin Chinese, Japanese, Korean, Arabic and Russian.
+- CEFR A1–C2 learning paths across ten supported languages, with 250 lessons per language for English/French/Spanish/German/Portuguese and 300 for Mandarin/Japanese/Korean/Arabic/Russian.
+- Full A1–C2 practice paths for German, Portuguese, Mandarin Chinese, Japanese, Korean, Arabic and Russian.
 - Interactive 3D teacher gallery with six selectable rigged avatars, camera controls, rotation toggle and optional GLB import (up to 500 MB). Avatars and the viewer are loaded from external CDNs and require Internet.
 
 ## Modules implemented
@@ -85,7 +85,7 @@ The separate real-model integration test is `pytest -q tests/test_ai_integration
 
 ## Important scope and safety notes
 
-- The catalogue includes 200+ language identifiers, but only the ten languages listed in the pedagogy module have a starter exercise bank. Full A1–C2 authored course paths currently exist for English, French and Spanish; seven additional languages have introductory A1 courses. Do not advertise every catalogue entry as a complete course.
+- The catalogue includes 200+ language identifiers, but only the ten languages listed in the pedagogy module have a starter exercise bank. The ten supported languages have A1–C2 practice paths, with at least 250 lessons per language for five European-language paths and 300 for five languages with additional writing-system/pronunciation demands. Lesson templates are structured practice material, not individually certified or independently human-reviewed content. Do not advertise every catalogue entry as a complete course.
 - The starter question bank is limited; exam support must be expanded with reviewed questions before use for formal certification.
 - Exit detection relies on a client signal. Browsers and mobile operating systems cannot guarantee detection of every app switch, device shutdown, network loss or tampering. The server enforces status and time when requests reach it.
 - Docker Compose includes a local Ollama model service and automatically pulls the Qwen 1.5B weights into a persistent volume on first start. The multi-hundred-MB/GB model weights are downloaded at installation time, not checked into the source ZIP or Git repository. This first setup needs Internet; inference thereafter is local. Mobile-browser clients still call the server and do not run the model directly on the phone.
@@ -102,5 +102,5 @@ The separate real-model integration test is `pytest -q tests/test_ai_integration
 - **Local AI:** Docker Compose provisions the Ollama engine and downloads `qwen2.5:1.5b` into a persistent volume; environment variables `LUCKY_OLLAMA_URL` and `LUCKY_PEDAGOGY_MODEL` remain configurable. If generation fails, the app uses original built-in questions/templates and labels that path separately. AI-generated questions are marked unverified and must be teacher-reviewed before high-stakes grading.
 - **Real model test:** `.github/workflows/lucky-languages-ci.yml` includes a dedicated integration job that downloads `qwen2.5:0.5b` and tests actual model output through the FastAPI endpoint; it rejects offline fallback as a passing result.
 - **Exam sources:** the UI links to official exam/resource sites for DELF/DALF/TCF, DELE, Cambridge English, HSK and Goethe. The app stores source references and reuse warnings, not copied copyrighted question papers. Each resource's specific license must be checked before importing it.
-- **Testing:** `tests/test_pedagogy.py` verifies endpoint schemas, answer validation, Chinese metadata, level rejection and exam-source reuse notes.
+- **Testing:** `tests/test_pedagogy.py` verifies endpoint schemas, answer validation, Chinese metadata, level rejection and exam-source reuse notes. `tests/test_api.py` also traverses all ten language paths and validates lesson content/answer fields and per-level minimum counts.
 - **Scope:** these are starter paths and not a complete, accredited curriculum for every language or official exam. The catalogue does not imply that every language has verified lessons or question banks.
