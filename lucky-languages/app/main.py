@@ -470,9 +470,13 @@ def current_user(authorization:Optional[str]=Header(default=None)):
  if not authorization or not authorization.startswith("Bearer "): raise HTTPException(401,"Authentification requise")
  token=authorization[7:].strip()
  with db_session() as db:
-  row=db.execute("SELECT u.id,u.full_name,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?",(digest_token(token),)).fetchone()
+  row=db.execute("SELECT u.id,u.full_name,u.username,u.role,s.created_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?",(digest_token(token),)).fetchone()
  if not row: raise HTTPException(401,"Session invalide")
- return dict(row)
+ created=datetime.fromisoformat(row["created_at"]).replace(tzinfo=timezone.utc)
+ if (datetime.now(timezone.utc)-created).total_seconds()>604800:
+  with db_session() as db: db.execute("DELETE FROM sessions WHERE token_hash=?",(digest_token(token),))
+  raise HTTPException(401,"Session expirée : reconnectez-vous")
+ return {k:row[k] for k in ("id","full_name","username","role")}
 def require_roles(*roles):
  def guard(user=Depends(current_user)):
   if user["role"] not in roles: raise HTTPException(403,"Permission insuffisante")
@@ -493,7 +497,7 @@ def register(payload:RegisterIn):
   except sqlite3.IntegrityError: raise HTTPException(409,"Nom d'utilisateur déjà utilisé")
   token=secrets.token_urlsafe(32)
   db.execute("INSERT INTO sessions(token_hash,user_id) VALUES(?,?)",(digest_token(token),uid))
- return {"access_token":token,"token_type":"bearer","user":{"id":uid,"full_name":payload.full_name.strip(),"username":payload.username.lower(),"role":"student"}}
+ return {"access_token":token,"token_type":"bearer","expires_in":604800,"user":{"id":uid,"full_name":payload.full_name.strip(),"username":payload.username.lower(),"role":"student"}}
 @app.post("/api/auth/login")
 def login(payload:LoginIn):
  with db_session() as db:
