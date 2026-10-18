@@ -213,6 +213,14 @@ def test_every_expanded_curriculum_lesson_is_exposed_and_has_a_reference_answer(
                 for lesson in level_lessons
             ), f"Missing lesson content or answer in {language_code} {level}"
             assert len({lesson["id"] for lesson in level_lessons}) == len(level_lessons)
+            # Procedurally expanded lessons expose the same reference phrase in
+            # the worked example, so every generated answer is checked end-to-end.
+            generated = [lesson for lesson in level_lessons if lesson["title"].startswith(level + " · ")]
+            assert generated, f"No expanded lessons found for {language_code} {level}"
+            assert all(lesson["answer"] in lesson["body"] for lesson in generated), (
+                f"Reference answer does not match worked example in {language_code} {level}"
+            )
+            assert all(lesson["exercise"].strip() for lesson in generated)
             lesson_total += len(level_lessons)
         assert lesson_total >= sum(levels.values()), f"Insufficient total lessons for {language_code}"
 
