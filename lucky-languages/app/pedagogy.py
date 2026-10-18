@@ -128,6 +128,19 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     prompt = {"system_role":system,"target_language":method["name"],"level":req.level,"skill":req.skill,
               "topic":req.topic,"learner_language":req.learner_language,"language_method":method["method"],
               "learner_difficulties":req.wrong_answers,"count":req.count}
+    if req.language_code == "zh":
+        # Small models need a direct, narrow Mandarin task; long multilingual
+        # instructions often produce invalid schema or omit required pinyin.
+        prompt["system_role"] = (
+            "You are a Mandarin teacher. Output JSON only. Make one easy HSK1/A1 "
+            "Mandarin vocabulary question. Use a real Chinese word, three Chinese "
+            "answer options, and set answer to exactly one option. Include a short "
+            "French explanation, pinyin with tone marks, and the French meaning. "
+            "Do not include markdown."
+        )
+        prompt["target_language"] = "Mandarin Chinese (中文)"
+        prompt["topic"] = req.topic or "greetings and everyday words"
+        prompt["count"] = 1
     question_properties = {
         "question":{"type":"string"},
         "options":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},
