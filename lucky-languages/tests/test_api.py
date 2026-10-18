@@ -12,7 +12,7 @@ def client():
    db.execute("DELETE FROM audit_log"); db.execute("DELETE FROM messages"); db.execute("DELETE FROM submissions")
    db.execute("DELETE FROM assignments"); db.execute("DELETE FROM schedule"); db.execute("DELETE FROM announcements")
    db.execute("DELETE FROM resources"); db.execute("DELETE FROM lesson_progress"); db.execute("DELETE FROM difficulties")
-   db.execute("DELETE FROM enrollments"); db.execute("DELETE FROM classes"); db.execute("DELETE FROM exam_attempts")
+   db.execute("DELETE FROM exam_answers"); db.execute("DELETE FROM enrollments"); db.execute("DELETE FROM classes"); db.execute("DELETE FROM exam_attempts")
    db.execute("DELETE FROM grades"); db.execute("DELETE FROM sessions"); db.execute("DELETE FROM users")
   yield c
 
@@ -124,3 +124,20 @@ def test_pdf_bulletin_and_role_protected_admin(client):
  assert pdf.status_code==200 and pdf.headers["content-type"]=="application/pdf"
  assert pdf.content.startswith(b"%PDF")
  assert client.get("/api/admin/overview",headers=auth(student["access_token"])).status_code==403
+
+def test_real_exam_questions_answers_server_grading_and_exit(client):
+ student=register(client,"exam_student")
+ headers=auth(student["access_token"])
+ start=client.post("/api/exams/start",headers=headers,json={"language_code":"fr"})
+ assert start.status_code==201
+ attempt=start.json()["attempt_id"]
+ qs=client.get(f"/api/exams/{attempt}/questions",headers=headers)
+ assert qs.status_code==200 and len(qs.json()["questions"])>0
+ q=qs.json()["questions"][0]
+ assert "correct_answer" not in q
+ saved=client.post(f"/api/exams/{attempt}/answer",headers=headers,json={"question_id":q["id"],"answer":q["options"][0]})
+ assert saved.status_code==200
+ submitted=client.post(f"/api/exams/{attempt}/submit",headers=headers)
+ assert submitted.status_code==200 and submitted.json()["status"]=="submitted"
+ assert client.post(f"/api/exams/{attempt}/submit",headers=headers).status_code==409
+ assert len(client.get("/api/bulletin",headers=headers).json()["grades"])==1
