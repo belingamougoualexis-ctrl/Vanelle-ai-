@@ -1,13 +1,13 @@
 {
-  "name": "Lucky Languages Academy",
-  "short_name": "Lucky Academy",
-  "description": "École numérique de langues avec cours, suivi scolaire et classes.",
+  "name": "LinguaBloom Academy",
+  "short_name": "LinguaBloom",
+  "description": "Apprenez les langues avec des parcours progressifs, des professeurs 3D et un suivi de progression.",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f3f6fa",
-  "theme_color": "#102b46",
+  "background_color": "#faf9ff",
+  "theme_color": "#5147c8",
   "icons": [
     {"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
   ]
