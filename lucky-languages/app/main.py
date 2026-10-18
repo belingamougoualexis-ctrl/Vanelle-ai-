@@ -266,8 +266,8 @@ class AnnouncementIn(BaseModel):
  class_id:Optional[int]=None
 class ScheduleIn(BaseModel):
  weekday:int=Field(ge=0,le=6)
- start_time:str=Field(pattern=r"^([01]\\d|2[0-3]):[0-5]\\d$")
- end_time:str=Field(pattern=r"^([01]\\d|2[0-3]):[0-5]\\d$")
+ start_time:str=Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+ end_time:str=Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
  topic:str=Field(min_length=2,max_length=160)
 class ProgressIn(BaseModel):
  status:str=Field(pattern=r"^(started|completed|needs_review)$")
