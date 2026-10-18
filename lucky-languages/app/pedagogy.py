@@ -1,4 +1,4 @@
-"""Pedagogical engine for Lucky Languages Academy.
+"""Pedagogical engine for LinguaBloom Academy.
 
 Offline-first original practice content, language-specific activity templates, and an
 optional local Ollama generator. External exam links are references only; copyrighted
@@ -109,7 +109,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     endpoint = os.getenv("LUCKY_OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
     model = os.getenv("LUCKY_PEDAGOGY_MODEL", "qwen2.5:1.5b")
     method = LANGUAGE_METHODS.get(req.language_code, {"name":req.language_code, "method":"Progressive vocabulary and sentence practice."})
-    system = ("You are Lucky Languages Academy's careful language teacher and assessment author. "
+    system = ("You are LinguaBloom Academy's careful language teacher and assessment author. "
               "Generate original educational questions only; never claim they are official exam questions. "
               "Match the requested level, use valid answers, include one concise explanation, and return ONLY a JSON array. "
               "Each object must have question, options (3 or 4 strings), answer (exactly one option), explanation, skill. "
