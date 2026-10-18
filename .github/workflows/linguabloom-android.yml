@@ -59,7 +59,7 @@ jobs:
                   assert exercise["answer"] in exercise["choices"], lesson["id"]
           assert len(ids) == len(set(ids)), "Lesson IDs must be unique"
           page = (assets / "index.html").read_text(encoding="utf-8")
-          assert "course-pack-v1.json" in page and "localStorage" in page
+          assert "EMBEDDED_COURSE_PACK=" in page and "localStorage" in page
           assert "https://" not in page and "http://" not in page, "Offline page must not reference remote assets"
           print(f"Validated {len(ids)} offline starter lessons across {len(pack['languages'])} languages")
           PY
