@@ -195,6 +195,11 @@ def generate_questions(req: GenerateRequest) -> dict[str, Any]:
     generated=_local_ai(req) if req.use_local_ai else None
     bank=BANK.get(code, [])
     eligible=[q for q in bank if _level_rank(q.get("level","A1")) <= _level_rank(req.level)]
+    # Start with questions authored for the selected level, then use earlier
+    # levels for spaced review. This prevents a C1/C2 learner getting only A1 items.
+    exact=[q for q in bank if q.get("level","A1").lower()==req.level.lower()]
+    if exact:
+        eligible=exact+[q for q in eligible if q not in exact]
     # Keep at least a small valid exercise set for supported starter languages.
     if not generated:
         pool=eligible or bank
