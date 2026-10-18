@@ -259,5 +259,10 @@ def test_pwa_root_worker_and_original_brand_icon_are_served(client):
  icon = client.get("/static/icon.svg")
  assert icon.status_code == 200
  assert "LinguaBloom Academy" in icon.text
+ audio = client.get("/static/lesson-audio.js")
+ assert audio.status_code == 200
+ assert "installLessonAudioControls" in audio.text
+ page = client.get("/")
+ assert "installLessonAudioControls" in page.text
  assert client.get("/health").json()["service"] == "linguabloom-academy-api"
 
