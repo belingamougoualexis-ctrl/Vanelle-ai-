@@ -1,0 +1,12 @@
+services:
+  lucky-languages:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      LUCKY_DB_PATH: /data/lucky.sqlite3
+    volumes:
+      - lucky-data:/data
+    restart: unless-stopped
+volumes:
+  lucky-data:

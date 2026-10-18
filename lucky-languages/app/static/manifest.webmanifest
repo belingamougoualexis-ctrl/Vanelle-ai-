@@ -1,0 +1,14 @@
+{
+  "name": "Lucky Languages Academy",
+  "short_name": "Lucky Academy",
+  "description": "École numérique de langues avec cours, suivi scolaire et classes.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#102b46",
+  "icons": [
+    {"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
