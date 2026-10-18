@@ -1,5 +1,5 @@
 const CACHE = "linguabloom-academy-shell-v2";
-const SHELL = ["/", "/static/manifest.webmanifest", "/static/icon.svg"];
+const SHELL = ["/", "/static/manifest.webmanifest", "/static/icon.svg", "/static/lesson-audio.js"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
