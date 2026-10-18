@@ -17,6 +17,13 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 Open `http://127.0.0.1:8000`. API documentation is at `http://127.0.0.1:8000/docs`. The web app is installable as a PWA in compatible browsers; its shell and public course responses can be cached, but authenticated features and messaging require the API to be reachable.
 
+## Rich lesson experience
+
+- Each lesson includes an automatically loaded, language-matched 3D teacher avatar. The avatar library and Google model-viewer are served from public CDNs, so the first load requires Internet; a clear message appears if the model cannot load.
+- Learners can type an answer and check it, press **Compris** to save lesson completion, or press **Je n’ai pas compris** and identify the exact part that is unclear (explanation, example, exercise, vocabulary, or pronunciation).
+- English, French, and Spanish have original lesson content from A1 through C2, with six or more lessons per level. German, Portuguese, Mandarin, Japanese, Korean, Arabic, and Russian have expanded A1 starter paths. Content is original practice material, not an official certificate or replacement for a full human-reviewed course.
+- Course seeding is idempotent: on startup it adds missing lessons without resetting user progress.
+
 ## Docker — application + real local AI model
 
 ```bash
