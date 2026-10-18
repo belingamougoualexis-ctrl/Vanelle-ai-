@@ -20,7 +20,7 @@ Open `http://127.0.0.1:8000`. API documentation is at `http://127.0.0.1:8000/doc
 ## Rich lesson experience
 
 - Each lesson includes an automatically loaded, language-matched 3D teacher avatar. The avatar library and Google model-viewer are served from public CDNs, so the first load requires Internet; a clear message appears if the model cannot load.
-- Learners can type an answer and check it, press **Compris** to save lesson completion, or press **Je n’ai pas compris** and identify the exact part that is unclear (explanation, example, exercise, vocabulary, or pronunciation).
+- Every lesson and exercise has audio playback using the device/browser text-to-speech voice in the target language, plus microphone dictation for spoken answers when the browser supports `SpeechRecognition`. Learners can stop/replay audio, type or speak an answer, check it, press **Compris** to save completion, or report the exact part they do not understand. Voice availability depends on the browser, permissions, and installed language voices; this is device-generated speech, not a set of pre-recorded native-speaker audio files. Browser speech recognition may require a compatible browser and network service.
 - The ten supported study languages (English, French, Spanish, German, Portuguese, Mandarin Chinese, Japanese, Korean, Modern Standard Arabic and Russian) receive complete A1–C2 lesson paths. The seed targets at least 250 lessons per language for English/French/Spanish/German/Portuguese and at least 300 for Mandarin/Japanese/Korean/Arabic/Russian, distributed by level with more lessons in advanced tracks. Each lesson has an example, a guided exercise and a reference answer. These are structured practice lessons and should not be represented as independently human-reviewed or accredited. Content is original practice material, not an official certificate or replacement for a full human-reviewed course.
 - Course seeding is idempotent: on startup it adds missing lessons without resetting user progress.
 
@@ -69,7 +69,7 @@ If the administrator account already exists, changing these variables does not o
 - Classes, join codes, assignments, student submissions, teacher grading and gradebook integration
 - Private/class messages, announcements, schedule, learning-resource uploads/downloads
 - Weighted bulletin, PDF export, administrator overview and audit log
-- Responsive PWA interface and limited offline shell/course cache
+- Responsive PWA interface, limited offline shell/course cache, lesson audio playback and supported-browser voice dictation
 - GitHub Actions CI: Python compilation, JavaScript syntax check and API tests
 
 ## Run tests
@@ -81,7 +81,7 @@ python tests/check_frontend.py
 pytest -q -m 'not ai_integration'
 ```
 
-The separate real-model integration test is `pytest -q tests/test_ai_integration.py -m ai_integration`. It requires Ollama running at `127.0.0.1:11434` and `qwen2.5:0.5b` downloaded. GitHub Actions now has a dedicated job that starts Ollama, downloads the real model weights, and sends a request through the actual app API; this test fails if the API silently falls back to the offline question bank.
+The separate real-model integration test is `pytest -q tests/test_ai_integration.py -m ai_integration`. It requires Ollama running at `127.0.0.1:11434` and `qwen2.5:1.5b` downloaded. GitHub Actions now has a dedicated job that starts Ollama, downloads the real model weights, and sends a request through the actual app API; this test fails if the API silently falls back to the offline question bank.
 
 ## Important scope and safety notes
 
@@ -100,7 +100,7 @@ The separate real-model integration test is `pytest -q tests/test_ai_integration
 - **Language-specific methods:** dedicated practice guidance for English, French, Spanish, Mandarin Chinese, Japanese, Korean, Arabic, Russian, German and Portuguese. Other language identifiers receive a generic safe template rather than a claim of complete curriculum.
 - **Chinese practice:** original activities include character, meaning, pinyin, tones in explanations, stroke-count metadata where known, and a writing prompt. The web text field cannot judge handwriting stroke quality or spoken tones; no such capability is claimed.
 - **Local AI:** Docker Compose provisions the Ollama engine and downloads `qwen2.5:1.5b` into a persistent volume; environment variables `LUCKY_OLLAMA_URL` and `LUCKY_PEDAGOGY_MODEL` remain configurable. If generation fails, the app uses original built-in questions/templates and labels that path separately. AI-generated questions are marked unverified and must be teacher-reviewed before high-stakes grading.
-- **Real model test:** `.github/workflows/lucky-languages-ci.yml` includes a dedicated integration job that downloads `qwen2.5:0.5b` and tests actual model output through the FastAPI endpoint; it rejects offline fallback as a passing result.
+- **Real model test:** `.github/workflows/lucky-languages-ci.yml` includes a dedicated integration job that downloads `qwen2.5:1.5b` and tests actual model output through the FastAPI endpoint; it rejects offline fallback as a passing result.
 - **Exam sources:** the UI links to official exam/resource sites for DELF/DALF/TCF, DELE, Cambridge English, HSK and Goethe. The app stores source references and reuse warnings, not copied copyrighted question papers. Each resource's specific license must be checked before importing it.
 - **Testing:** `tests/test_pedagogy.py` verifies endpoint schemas, answer validation, Chinese metadata, level rejection and exam-source reuse notes. `tests/test_api.py` also traverses all ten language paths and validates lesson content/answer fields and per-level minimum counts.
 - **Scope:** these are starter paths and not a complete, accredited curriculum for every language or official exam. The catalogue does not imply that every language has verified lessons or question banks.
