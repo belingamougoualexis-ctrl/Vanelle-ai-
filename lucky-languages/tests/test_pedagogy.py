@@ -78,3 +78,15 @@ def test_all_supported_language_exercise_banks_return_valid_questions():
         questions = response.json()["questions"]
         assert len(questions) == 3
         assert all(q.get("question") and q.get("options") and q.get("answer") in q["options"] for q in questions)
+
+def test_advanced_level_selection_returns_level_matched_original_questions():
+    for language_code in ("en", "fr", "es"):
+        for level in ("A2", "B1", "B2", "C1", "C2"):
+            response = client.post("/api/pedagogy/generate", json={
+                "language_code": language_code, "level": level, "skill": "mixed",
+                "count": 1, "topic": "everyday life", "use_local_ai": False
+            })
+            assert response.status_code == 200
+            question = response.json()["questions"][0]
+            assert question["level"] == level, (language_code, level, question)
+            assert question["answer"] in question["options"]
