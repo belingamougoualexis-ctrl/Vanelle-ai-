@@ -17,13 +17,13 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 Open `http://127.0.0.1:8000`. API documentation is at `http://127.0.0.1:8000/docs`. The web app is installable as a PWA in compatible browsers; its shell and public course responses can be cached, but authenticated features and messaging require the API to be reachable.
 
-## Docker
+## Docker — application + real local AI model
 
 ```bash
 docker compose up --build
 ```
 
-SQLite is used for development and the compose example. The database is persisted in a named volume. For public multi-user production, migrate to PostgreSQL and configure HTTPS, backups, secret storage, monitoring, rate limits, and a proper deployment proxy before exposing it to the Internet.
+The first start pulls the Ollama runtime and downloads the actual `qwen2.5:1.5b` model weights into the persistent `lucky-models` volume. This requires an Internet connection for the first download and enough disk/RAM; later starts reuse the downloaded model. The app connects to that local model service and falls back to original exercises only if model generation fails. The model is provisioned automatically by the packaged Docker setup rather than committed as a huge binary in Git. SQLite is used for development and the compose example. The database is persisted in a named volume. For public multi-user production, migrate to PostgreSQL and configure HTTPS, backups, secret storage, monitoring, rate limits, and a proper deployment proxy before exposing it to the Internet.
 
 ## First administrator
 
@@ -50,7 +50,7 @@ If the administrator account already exists, changing these variables does not o
 - Catalogue metadata for 200+ language identifiers; catalogue entries are not claims that full lessons are available
 - Starter A1 courses/lessons for English, French and Spanish
 - Lesson progress and saved difficulty history
-- Optional local Ollama tutor endpoint; default model is `qwen2.5:1.5b`, downloaded separately. No cloud AI API is used by the tutor
+- Local Ollama tutor. `docker compose up --build` starts an Ollama model service and downloads `qwen2.5:1.5b` into a persistent model volume on first launch; this initial download requires Internet and substantial disk/RAM. No cloud AI API is used by the tutor
 - Timed multiple-choice exams for English, French and Spanish, server-side answer checking and scoring, 20-minute deadline and exit cancellation
 - Classes, join codes, assignments, student submissions, teacher grading and gradebook integration
 - Private/class messages, announcements, schedule, learning-resource uploads/downloads
@@ -64,15 +64,17 @@ If the administrator account already exists, changing these variables does not o
 pip install -r requirements.txt
 python -m compileall -q app tests
 python tests/check_frontend.py
-pytest -q
+pytest -q -m 'not ai_integration'
 ```
+
+The separate real-model integration test is `pytest -q tests/test_ai_integration.py -m ai_integration`. It requires Ollama running at `127.0.0.1:11434` and `qwen2.5:0.5b` downloaded. GitHub Actions now has a dedicated job that starts Ollama, downloads the real model weights, and sends a request through the actual app API; this test fails if the API silently falls back to the offline question bank.
 
 ## Important scope and safety notes
 
 - The metadata catalogue is broad, but complete verified course paths currently exist only for the starter languages/content. Do not advertise every catalogue language as a complete course.
 - The starter question bank is limited; exam support must be expanded with reviewed questions before use for formal certification.
 - Exit detection relies on a client signal. Browsers and mobile operating systems cannot guarantee detection of every app switch, device shutdown, network loss or tampering. The server enforces status and time when requests reach it.
-- The local tutor works only when an Ollama-compatible service is running on loopback. Models are not bundled with the application. The default Qwen 1.5B model must be downloaded separately; available RAM, latency and quality should be measured on the target device.
+- Docker Compose includes a local Ollama model service and automatically pulls the Qwen 1.5B weights into a persistent volume on first start. The multi-hundred-MB/GB model weights are downloaded at installation time, not checked into the source ZIP or Git repository. This first setup needs Internet; inference thereafter is local. Mobile-browser clients still call the server and do not run the model directly on the phone.
 - Uploaded files are limited to 10 MB and allowed file extensions, but production needs malware scanning, storage isolation and retention policy.
 - SQLite is not a suitable final database for a high-traffic school service. The current project is a functional application foundation, not a certified or production-hardened education platform.
 
@@ -83,7 +85,8 @@ pytest -q
 - **Correction API:** `POST /api/pedagogy/grade` checks a submitted answer against the question's reference answer and returns feedback/explanation.
 - **Language-specific methods:** dedicated practice guidance for English, French, Spanish, Mandarin Chinese, Japanese, Korean, Arabic, Russian, German and Portuguese. Other language identifiers receive a generic safe template rather than a claim of complete curriculum.
 - **Chinese practice:** original activities include character, meaning, pinyin, tones in explanations, stroke-count metadata where known, and a writing prompt. The web text field cannot judge handwriting stroke quality or spoken tones; no such capability is claimed.
-- **Local AI:** optional Ollama integration through `LUCKY_OLLAMA_URL` and `LUCKY_PEDAGOGY_MODEL` (defaults to local Ollama at `127.0.0.1:11434` and `qwen2.5:1.5b`). The model must be installed and downloaded separately. If unavailable, generation falls back to built-in original questions/templates. Generated questions are marked unverified and must be teacher-reviewed before high-stakes grading.
+- **Local AI:** Docker Compose provisions the Ollama engine and downloads `qwen2.5:1.5b` into a persistent volume; environment variables `LUCKY_OLLAMA_URL` and `LUCKY_PEDAGOGY_MODEL` remain configurable. If generation fails, the app uses original built-in questions/templates and labels that path separately. AI-generated questions are marked unverified and must be teacher-reviewed before high-stakes grading.
+- **Real model test:** `.github/workflows/lucky-languages-ci.yml` includes a dedicated integration job that downloads `qwen2.5:0.5b` and tests actual model output through the FastAPI endpoint; it rejects offline fallback as a passing result.
 - **Exam sources:** the UI links to official exam/resource sites for DELF/DALF/TCF, DELE, Cambridge English, HSK and Goethe. The app stores source references and reuse warnings, not copied copyrighted question papers. Each resource's specific license must be checked before importing it.
 - **Testing:** `tests/test_pedagogy.py` verifies endpoint schemas, answer validation, Chinese metadata, level rejection and exam-source reuse notes.
 - **Scope:** these are starter paths and not a complete, accredited curriculum for every language or official exam. The catalogue does not imply that every language has verified lessons or question banks.
