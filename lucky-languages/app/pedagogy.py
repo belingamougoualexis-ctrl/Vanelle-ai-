@@ -121,7 +121,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     method = LANGUAGE_METHODS.get(req.language_code, {"name":req.language_code, "method":"Progressive vocabulary and sentence practice."})
     system = ("You are LinguaBloom Academy's careful language teacher and assessment author. "
               "Generate original educational questions only; never claim they are official exam questions. "
-              "Match the requested level, use valid answers, include one concise explanation, and return ONLY a JSON array. "
+              "Match the requested level, use valid answers, include one concise explanation, and return ONLY a valid JSON object containing a questions array. "
               "Each object must have question, options (3 or 4 strings), answer (exactly one option), explanation, skill. "
               "For Chinese use actual Chinese characters and include character, pinyin, meaning, and writing_prompt when relevant. "
               "Never invent an external citation. If uncertain, use simple reliable material.")
