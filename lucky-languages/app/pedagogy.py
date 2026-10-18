@@ -1,4 +1,4 @@
-"""Pedagogical engine for Lucky Languages Academy.
+"""Pedagogical engine for LinguaBloom Academy.
 
 Offline-first original practice content, language-specific activity templates, and an
 optional local Ollama generator. External exam links are references only; copyrighted
@@ -49,17 +49,27 @@ BANK: dict[str, list[dict[str, Any]]] = {
   {"level":"A1","skill":"grammar","question":"Complete: She ___ a student.","options":["am","is","are"],"answer":"is","explanation":"Avec « she », on utilise « is » au présent du verbe be.","source":"original"},
   {"level":"A2","skill":"grammar","question":"Yesterday, we ___ to school.","options":["go","went","gone"],"answer":"went","explanation":"« Yesterday » indique le passé; le prétérit de go est went.","source":"original"},
   {"level":"B1","skill":"grammar","question":"If I had more time, I ___ another language.","options":["learn","would learn","will learned"],"answer":"would learn","explanation":"Le second conditionnel utilise if + prétérit, puis would + base verbale.","source":"original"},
+  {"level":"B2","skill":"grammar","question":"The report ___ yesterday.","options":["published","was published","has publish"],"answer":"was published","explanation":"Le passif au prétérit se forme avec was/were + participe passé.","source":"original"},
+  {"level":"C1","skill":"register","question":"Choose the most formal alternative to “kids”.","options":["children","little ones","youngsters"],"answer":"children","explanation":"Children convient généralement mieux à un registre formel ou académique.","source":"original"},
+  {"level":"C2","skill":"idiom","question":"“To get the ball rolling” means to…","options":["start an activity","stop a project","change the rules"],"answer":"start an activity","explanation":"Cette expression signifie commencer une activité ou lancer un projet.","source":"original"},
  ],
  "fr": [
   {"level":"A1","skill":"vocabulaire","question":"Que signifie « bonjour » en anglais ?","options":["Good morning / Hello","Good night","Goodbye"],"answer":"Good morning / Hello","explanation":"« Bonjour » s'emploie pour saluer pendant la journée.","source":"original"},
   {"level":"A1","skill":"grammaire","question":"Complète : Nous ___ à l'école.","options":["suis","sommes","êtes"],"answer":"sommes","explanation":"Avec « nous », le verbe être se conjugue « nous sommes ».","source":"original"},
   {"level":"A2","skill":"orthographe","question":"Choisis la phrase correctement accordée.","options":["Les filles sont arrivées.","Les filles sont arrivé.","Les filles est arrivées."],"answer":"Les filles sont arrivées.","explanation":"Avec être, le participe passé s'accorde avec le sujet féminin pluriel.","source":"original"},
   {"level":"B1","skill":"grammaire","question":"Si j'avais étudié, je ___ mieux réussi.","options":["aurais","avais","ai"],"answer":"aurais","explanation":"La phrase exprime une condition passée irréelle : si + plus-que-parfait, conditionnel passé.","source":"original"},
+  {"level":"B2","skill":"grammaire","question":"Bien qu'elle ___ fatiguée, elle continue.","options":["est","soit","sera"],"answer":"soit","explanation":"Bien que est suivi du subjonctif : bien qu'elle soit fatiguée.","source":"original"},
+  {"level":"C1","skill":"registre","question":"Quelle formulation exprime une conclusion prudente ?","options":["Cela prouve tout.","Les données suggèrent une tendance.","C'est toujours vrai."],"answer":"Les données suggèrent une tendance.","explanation":"Cette formulation indique une conclusion proportionnée aux éléments disponibles.","source":"original"},
+  {"level":"C2","skill":"style","question":"La répétition d'un même mot au début de plusieurs phrases est une…","options":["anaphore","métaphore","litote"],"answer":"anaphore","explanation":"L'anaphore est une répétition en tête de segments successifs.","source":"original"},
  ],
  "es": [
   {"level":"A1","skill":"vocabulario","question":"¿Qué significa « gracias » en francés?","options":["Merci","Bonjour","Au revoir"],"answer":"Merci","explanation":"« Gracias » significa « merci ».","source":"original"},
   {"level":"A1","skill":"gramática","question":"Completa: Yo ___ estudiante.","options":["soy","eres","son"],"answer":"soy","explanation":"Avec « yo », le verbe ser se conjugue « soy ».","source":"original"},
   {"level":"A2","skill":"gramática","question":"Ayer nosotros ___ al mercado.","options":["vamos","fuimos","iremos"],"answer":"fuimos","explanation":"« Ayer » appelle ici le passé simple de ir : fuimos.","source":"original"},
+  {"level":"B1","skill":"gramática","question":"Si tuviera tiempo, ___ más idiomas.","options":["estudio","estudiaría","estudié"],"answer":"estudiaría","explanation":"La segunda condicional usa si + imperfecto de subjuntivo y condicional.","source":"original"},
+  {"level":"B2","skill":"gramática","question":"Espero que ella ___ pronto.","options":["viene","venga","vino"],"answer":"venga","explanation":"Después de espero que se usa el subjuntivo para expresar deseo o expectativa.","source":"original"},
+  {"level":"C1","skill":"registro","question":"¿Qué frase presenta una conclusión prudente?","options":["Esto siempre demuestra todo.","Los datos sugieren una tendencia.","No existe ninguna duda."],"answer":"Los datos sugieren una tendencia.","explanation":"La formulación matiza la conclusión y no exagera la evidencia.","source":"original"},
+  {"level":"C2","skill":"retórica","question":"La repetición al inicio de varias frases se llama…","options":["anáfora","hipérbole","metonimia"],"answer":"anáfora","explanation":"La anáfora repite una palabra o expresión al comienzo de segmentos sucesivos.","source":"original"},
  ],
  "zh": [
   {"level":"A1","skill":"caractère et sens","question":"Que signifie le caractère 人 ?","options":["Personne / être humain","Eau","Montagne"],"answer":"Personne / être humain","explanation":"人 signifie personne ou être humain. Pinyin : rén, 2e ton. Trace les deux traits dans l'ordre appris puis écris 人 de mémoire.","character":"人","pinyin":"rén","meaning":"personne; être humain","stroke_count":2,"source":"original"},
@@ -109,7 +119,7 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     endpoint = os.getenv("LUCKY_OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
     model = os.getenv("LUCKY_PEDAGOGY_MODEL", "qwen2.5:1.5b")
     method = LANGUAGE_METHODS.get(req.language_code, {"name":req.language_code, "method":"Progressive vocabulary and sentence practice."})
-    system = ("You are Lucky Languages Academy's careful language teacher and assessment author. "
+    system = ("You are LinguaBloom Academy's careful language teacher and assessment author. "
               "Generate original educational questions only; never claim they are official exam questions. "
               "Match the requested level, use valid answers, include one concise explanation, and return ONLY a JSON array. "
               "Each object must have question, options (3 or 4 strings), answer (exactly one option), explanation, skill. "
@@ -185,6 +195,11 @@ def generate_questions(req: GenerateRequest) -> dict[str, Any]:
     generated=_local_ai(req) if req.use_local_ai else None
     bank=BANK.get(code, [])
     eligible=[q for q in bank if _level_rank(q.get("level","A1")) <= _level_rank(req.level)]
+    # Start with questions authored for the selected level, then use earlier
+    # levels for spaced review. This prevents a C1/C2 learner getting only A1 items.
+    exact=[q for q in bank if q.get("level","A1").lower()==req.level.lower()]
+    if exact:
+        eligible=exact+[q for q in eligible if q not in exact]
     # Keep at least a small valid exercise set for supported starter languages.
     if not generated:
         pool=eligible or bank

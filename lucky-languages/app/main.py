@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 BASE = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("LUCKY_DB_PATH", str(BASE / "lucky.db")))
-app = FastAPI(title="Lucky Languages Academy API", version="0.1.0")
+app = FastAPI(title="LinguaBloom Academy API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 LANGUAGES = [
  {"code":"en","name":"English","status":"catalogue"},
@@ -425,6 +425,8 @@ def init_db():
   CREATE TABLE IF NOT EXISTS exam_attempts(id INTEGER PRIMARY KEY,student_id INTEGER NOT NULL REFERENCES users(id),language_code TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('in_progress','cancelled','submitted')),question_seed INTEGER NOT NULL,started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY,actor_id INTEGER,action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   """)
+
+
 @app.on_event("startup")
 def startup():
  init_db()
@@ -624,6 +626,113 @@ def init_academy_tables():
     cid=db.execute("INSERT INTO courses(language_code,title,level,description) VALUES(?,?,?,?)",(code,title,level,desc)).lastrowid
     for i,(lt,body,exercise,answer) in enumerate(lessons,1):
      db.execute("INSERT INTO lessons(course_id,title,body,exercise,answer,position) VALUES(?,?,?,?,?,?)",(cid,lt,body,exercise,answer,i))
+
+  # LinguaBloom curated learning paths. Each lesson has an explicit answer and a
+  # short explanation; levels describe progression, not official certification.
+  advanced_tracks = [
+   ("en","English · Elementary conversations","A2","Everyday conversations, past events and future plans.",[
+    ("Daily routines","Use present simple for habits: I usually study after school. Use frequency adverbs before most main verbs.","Complete: She usually ___ breakfast at seven. (have/has)","has"),
+    ("Past experiences","Use the past simple for completed events: I visited my aunt yesterday. Regular verbs usually end in -ed.","Complete: We ___ a film last night. (watch/watched)","watched"),
+    ("Plans and invitations","Use going to for intentions and would like to for polite requests: I’m going to practise. Would you like to join?","Choose the polite invitation: (Come now!/Would you like to join us?)","Would you like to join us?")]),
+   ("en","English · Independent speaker","B1","Narration, practical conditionals and clear opinions.",[
+    ("Tell a story","Use past simple for completed events and past continuous for the background: I was walking when it started to rain.","Complete: I ___ when the phone rang. (was reading/read)","was reading"),
+    ("Real and imagined conditions","First conditional: if + present, will + verb. Second conditional: if + past, would + verb.","If I had more time, I ___ another language. (learn/would learn)","would learn"),
+    ("Support an opinion","State your view, give a reason and add an example. Use however to introduce a contrast.","Choose the best contrast connector: (because/however)","however")]),
+   ("en","English · Confident communication","B2","Complex sentences, passive voice and nuanced argument.",[
+    ("Passive voice","Use be + past participle when the action matters more than the agent: The results were published yesterday.","Change to passive: They built the bridge in 1990.","The bridge was built in 1990."),
+    ("Relative clauses","Use who for people, which for things and that in many defining clauses.","The book ___ I borrowed is excellent. (who/that)","that"),
+    ("Balanced argument","A strong argument states a claim, supports it with evidence and acknowledges a counterpoint.","Which phrase introduces a concession? (Even though/For example)","Even though")]),
+   ("en","English · Advanced expression","C1","Register, precise linking and evidence-led writing.",[
+    ("Formal register","Prefer precise verbs and avoid contractions in formal academic writing: We do not agree with the proposal.","Choose the formal option: (kids/children)","children"),
+    ("Concession and emphasis","Although introduces a concession; nevertheless marks a contrast with the preceding idea.","___ the evidence was limited, the team reported its findings. (Although/Despite of)","Although"),
+    ("Synthesis","Combine sources by comparing claims, noting limitations and drawing a qualified conclusion.","Which conclusion is appropriately cautious? (This proves everything./The evidence suggests a likely trend.)","The evidence suggests a likely trend.")]),
+   ("en","English · Mastery and nuance","C2","Idiomatic nuance, rhetorical precision and careful editing.",[
+    ("Idiomatic meaning","Idioms must be interpreted as a whole; their meaning may not equal the sum of their words.","“To get the ball rolling” means to… (start an activity/stop a project)","start an activity"),
+    ("Rhetorical effect","Parallel structures give related ideas a balanced rhythm: to learn, to practise, to improve.","Which sentence has parallel structure? (She likes reading, to swim and bikes./She likes reading, swimming and cycling.)","She likes reading, swimming and cycling."),
+    ("Precision editing","Choose wording that matches the strength of the evidence and avoid absolute claims without proof.","Replace an unsupported absolute: (This always works./This often works in the tested cases.)","This often works in the tested cases.")]),
+   ("fr","Français · Autonomie quotidienne","A2","Raconter, demander poliment et parler de projets.",[
+    ("Raconter au passé","Le passé composé exprime souvent une action terminée : « Hier, j’ai étudié. » Avec être, le participe passé s’accorde généralement avec le sujet.","Complète : Hier, nous ___ un film. (avons regardé/ regardons)","avons regardé"),
+    ("Demander poliment","« Pourriez-vous… ? » et « J’aimerais… » rendent une demande plus polie que l’impératif direct.","Choisis la demande la plus polie : (Donne-moi ça./Pourriez-vous m’aider ?)","Pourriez-vous m’aider ?"),
+    ("Parler de projets","« Aller + infinitif » exprime un futur proche : « Je vais réviser ce soir. »","Complète : Demain, elle ___ visiter sa tante. (va/est)","va")]),
+   ("fr","Français · Expression indépendante","B1","Récit, hypothèses et argumentation structurée.",[
+    ("Organiser un récit","Les marqueurs « d’abord », « ensuite », « pendant que » et « finalement » rendent un récit plus clair.","Quel marqueur annonce la dernière étape ? (d’abord/finalement)","finalement"),
+    ("Exprimer une hypothèse","« Si + imparfait » est suivi du conditionnel présent : « Si j’avais le temps, je voyagerais. »","Si j’étais libre, je ___ avec vous. (viens/viendrais)","viendrais"),
+    ("Défendre une opinion","Présente une idée, justifie-la, donne un exemple et réponds à une objection.","Quel connecteur marque l’opposition ? (cependant/parce que)","cependant")]),
+   ("fr","Français · Argumentation avancée","B2","Voix passive, subordination et argumentation nuancée.",[
+    ("Voix passive","La voix passive met l’accent sur l’action ou le résultat : « Le rapport a été publié. »","Mets au passif : « Le jury a choisi le texte. »","Le texte a été choisi par le jury."),
+    ("Subordination","« Bien que » est suivi du subjonctif : « Bien qu’il soit tard… »","Bien qu’elle ___ fatiguée, elle continue. (est/soit)","soit"),
+    ("Construire une argumentation","Une argumentation solide relie thèse, preuves, limites et conclusion.","Quelle étape renforce un argument ? (une preuve pertinente/une répétition sans raison)","une preuve pertinente")]),
+   ("fr","Français · Maîtrise du registre","C1","Registres, précision lexicale et synthèse critique.",[
+    ("Adapter le registre","Le vocabulaire et la syntaxe changent selon le destinataire : conversation, courrier professionnel ou essai.","Dans un courrier formel, choisis : (Salut !/Madame, Monsieur,)","Madame, Monsieur,"),
+    ("Nuancer une affirmation","« Il semble que », « dans une certaine mesure » et « les données suggèrent » évitent les certitudes excessives.","Quelle formulation est la plus nuancée ? (C’est incontestable./Les éléments disponibles suggèrent que…)","Les éléments disponibles suggèrent que…"),
+    ("Synthèse critique","Une synthèse regroupe les idées communes et les divergences sans juxtaposer mécaniquement les textes.","Une bonne synthèse doit… (comparer et hiérarchiser les idées/copier chaque paragraphe)","comparer et hiérarchiser les idées")]),
+   ("fr","Français · Maîtrise et finesse","C2","Figures de style, idiomes et révision stylistique.",[
+    ("Sens figuré","Une expression idiomatique s’interprète dans son contexte et ne se traduit pas toujours mot à mot.","« Avoir le cœur sur la main » signifie être… (généreux/indifférent)","généreux"),
+    ("Effets rhétoriques","L’anaphore répète un mot ou groupe de mots au début de plusieurs segments.","La répétition en début de phrases s’appelle… (anaphore/métaphore)","anaphore"),
+    ("Réviser un texte","Une révision avancée vérifie le sens, la cohérence, le rythme et la précision des mots.","Quel choix améliore la précision ? (un terme exact/une formule vague)","un terme exact")]),
+   ("es","Español · Conversación cotidiana","A2","Hablar del pasado, pedir con cortesía y expresar planes.",[
+    ("Hablar del pasado","El pretérito indefinido presenta una acción terminada: « Ayer estudié ».","Ayer nosotros ___ al mercado. (vamos/fuimos)","fuimos"),
+    ("Pedir con cortesía","« ¿Podría ayudarme? » es más cortés que una orden directa.","Elige la petición más cortés: (Dame eso./¿Podría ayudarme?)","¿Podría ayudarme?"),
+    ("Planes futuros","« Ir a + infinitivo » expresa un plan: « Voy a estudiar esta tarde ».","Mañana ella ___ a practicar. (va/voy)","va")]),
+   ("es","Español · Usuario independiente","B1","Narración, hipótesis y opinión razonada.",[
+    ("Narrar experiencias","Combina conectores como primero, después, mientras y finalmente para ordenar un relato.","¿Qué conector suele cerrar una secuencia? (primero/finalmente)","finalmente"),
+    ("Expresar hipótesis","La segunda condicional usa si + imperfecto de subjuntivo y condicional: « Si pudiera, viajaría ».","Si tuviera tiempo, ___ más. (estudio/estudiaría)","estudiaría"),
+    ("Argumentar","Presenta una idea, justifícala con una razón y añade un ejemplo concreto.","¿Qué conector expresa contraste? (sin embargo/por eso)","sin embargo")]),
+   ("es","Español · Argumentación avanzada","B2","Voz pasiva, subordinación y matices argumentativos.",[
+    ("Voz pasiva","La pasiva con ser + participio destaca la acción: « El informe fue publicado ».","Completa: La carta fue ___ ayer. (escribir/escrita)","escrita"),
+    ("Subjuntivo en contexto","Tras ciertas expresiones de duda, deseo o valoración se usa el subjuntivo.","Espero que ella ___ pronto. (viene/venga)","venga"),
+    ("Debate equilibrado","Una buena argumentación presenta razones, reconoce objeciones y responde con evidencia.","¿Qué fortalece una tesis? (evidencia pertinente/afirmaciones sin apoyo)","evidencia pertinente")]),
+   ("es","Español · Registro y precisión","C1","Registro formal, conectores complejos y síntesis.",[
+    ("Registro formal","En textos profesionales, elige vocabulario preciso y evita expresiones demasiado coloquiales.","En un correo formal, ¿qué saludo conviene? (Estimado equipo/Hola, colega!)","Estimado equipo"),
+    ("Matizar afirmaciones","« Los datos parecen indicar… » expresa más cautela que « Esto demuestra todo ».","Elige la afirmación prudente: (Siempre ocurre./Los datos sugieren una tendencia.)","Los datos sugieren una tendencia."),
+    ("Sintetizar fuentes","Una síntesis compara ideas, destaca diferencias y formula una conclusión propia.","Una síntesis eficaz debe… (jerarquizar ideas/copiar cada texto)","jerarquizar ideas")]),
+   ("es","Español · Dominio y estilo","C2","Expresiones idiomáticas, retórica y edición precisa.",[
+    ("Expresiones idiomáticas","El sentido de una expresión fija depende del contexto cultural y comunicativo.","« Estar en las nubes » significa estar… (distraído/muy enfadado)","distraído"),
+    ("Recursos retóricos","La anáfora repite palabras al inicio de varias frases para crear ritmo o énfasis.","¿Cómo se llama esa repetición inicial? (anáfora/hipérbole)","anáfora"),
+    ("Edición de estilo","La revisión avanzada elimina ambigüedades y adapta el tono al propósito y al lector.","¿Qué mejora la precisión? (un término específico/una frase vaga)","un término específico")]),
+  ]
+  for code,title,level,desc,lessons in advanced_tracks:
+   if not db.execute("SELECT id FROM courses WHERE language_code=? AND level=?",(code,level)).fetchone():
+    cid=db.execute("INSERT INTO courses(language_code,title,level,description) VALUES(?,?,?,?)",(code,title,level,desc)).lastrowid
+    for i,(lt,body,exercise,answer) in enumerate(lessons,1):
+     db.execute("INSERT INTO lessons(course_id,title,body,exercise,answer,position) VALUES(?,?,?,?,?,?)",(cid,lt,body,exercise,answer,i))
+  # Original introductory pathways for seven additional writing systems/languages.
+  additional_tracks = [
+   ("de","Deutsch · Erste Schritte","A1","Begrüßungen, einfache Sätze und Alltag.",[
+    ("Begrüßungen","Hallo = salut. Guten Morgen = bonjour le matin. Ich heiße… = je m’appelle…","Complète : Ich ___ Anna. (heiße/heißt)","heiße"),
+    ("Sein","Sein au présent : ich bin, du bist, er/sie ist. Exemple : Ich bin Schüler.","Ich ___ müde. (bin/bist)","bin"),
+    ("Questions simples","Wer = qui, wo = où, was = quoi. Wo wohnst du? = Où habites-tu ?","Quel mot demande un lieu ? (wer/wo)","wo")]),
+   ("pt","Português · Primeiros passos","A1","Saudações, apresentações et phrases simples.",[
+    ("Saudações","Olá = bonjour. Bom dia = bonjour le matin. Chamo-me Ana / Meu nome é Ana = je m’appelle Ana.","« Obrigado » signifie… (merci/bonjour)","merci"),
+    ("Ser","Ser : eu sou, tu és, ele/ela é. Exemple : Eu sou estudante.","Completa: Eu ___ estudante. (sou/és)","sou"),
+    ("Perguntas","Onde = où, quem = qui, o que = quoi. Onde moras? = Où habites-tu ?","Quel mot signifie « où » ? (onde/quem)","onde")]),
+   ("zh","中文 · Premiers caractères","A1","Caractères, pinyin, sens et premières salutations.",[
+    ("人 — personne","人 signifie personne/être humain. Pinyin : rén, deuxième ton. Observe les deux traits et rappelle le sens sans regarder.","Que signifie 人 ? (personne/eau)","personne"),
+    ("水 — eau","水 signifie eau. Pinyin : shuǐ, troisième ton. Le caractère compte quatre traits; prononce puis rappelle le sens.","Quel est le pinyin de 水 ? (shuǐ/rén)","shuǐ"),
+    ("Saluer","你好 (nǐ hǎo) signifie bonjour. 你 = tu/vous; 好 = bien/bon.","Que signifie 你好 ? (bonjour/merci)","bonjour")]),
+   ("ja","日本語 · Premiers kana","A1","Hiragana, salutations et expressions utiles.",[
+    ("Hiragana あ","あ se lit a. Les kana représentent des sons; apprends d’abord à reconnaître les signes et leur lecture.","あ se lit… (a/ka)","a"),
+    ("Saluer","こんにちは (konnichiwa) signifie bonjour dans la journée. ありがとう (arigatō) signifie merci.","Que signifie ありがとう ? (merci/bonjour)","merci"),
+    ("Se présenter","わたしはアナです。 signifie « Je suis Ana ». は marque ici le thème et se prononce wa.","Quelle expression signifie « je suis Ana » ? (わたしはアナです。/さようなら)","わたしはアナです。")]),
+   ("ko","한국어 · Premiers hangeul","A1","Hangeul, syllabes et expressions de base.",[
+    ("Bloc syllabique","한 se compose de ㅎ (h), ㅏ (a) et ㄴ (n) : han. Les lettres se regroupent en blocs syllabiques.","한 se lit… (han/dal)","han"),
+    ("Saluer","안녕하세요 (annyeonghaseyo) est une salutation polie courante; 감사합니다 (gamsahamnida) signifie merci.","Que signifie 감사합니다 ? (merci/bonjour)","merci"),
+    ("Se présenter","저는 학생입니다 signifie « Je suis étudiant(e) ». 저는 introduit « moi, je » et 학생 signifie étudiant.","학생 signifie… (étudiant/professeur)","étudiant")]),
+   ("ar","العربية · Premiers pas","A1","Alphabet, lecture de droite à gauche et salutations.",[
+    ("Sens de lecture","L’arabe se lit de droite à gauche. Les lettres peuvent changer de forme selon leur position dans le mot.","Dans quel sens lit-on l’arabe ? (droite à gauche/gauche à droite)","droite à gauche"),
+    ("Salutations","مرحبا (marhaban) signifie bonjour/bienvenue. شكرا (shukran) signifie merci.","Que signifie شكرا ? (merci/bonjour)","merci"),
+    ("Se présenter","أنا طالب (ana talib) signifie « je suis étudiant » au masculin; أنا طالبة (ana taliba) au féminin.","أنا signifie… (je/eau)","je")]),
+   ("ru","Русский · Premiers pas","A1","Cyrillique, salutations et premières phrases.",[
+    ("Cyrillique","М se prononce m; Р se prononce r; Н se prononce n. Certaines lettres ressemblent au latin mais ont un autre son.","Quelle lettre se prononce m ? (М/Р)","М"),
+    ("Saluer","Здравствуйте est une salutation polie; привет est plus familier. Спасибо signifie merci.","Что значит Спасибо? (merci/bonjour)","merci"),
+    ("Se présenter","Я студент / Я студентка signifie « je suis étudiant / étudiante ». Я signifie je.","Я signifie… (je/tu)","je")])
+  ]
+  for code,title,level,desc,lessons in additional_tracks:
+   if not db.execute("SELECT id FROM courses WHERE language_code=? AND level=?",(code,level)).fetchone():
+    cid=db.execute("INSERT INTO courses(language_code,title,level,description) VALUES(?,?,?,?)",(code,title,level,desc)).lastrowid
+    for i,(lt,body,exercise,answer) in enumerate(lessons,1):
+     db.execute("INSERT INTO lessons(course_id,title,body,exercise,answer,position) VALUES(?,?,?,?,?,?)",(cid,lt,body,exercise,answer,i))
+
 
 @app.on_event("startup")
 def startup_academy():
