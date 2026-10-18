@@ -201,6 +201,8 @@ def init_academy_tables():
   CREATE TABLE IF NOT EXISTS announcements(id INTEGER PRIMARY KEY,author_id INTEGER NOT NULL REFERENCES users(id),class_id INTEGER REFERENCES classes(id),title TEXT NOT NULL,body TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS difficulties(id INTEGER PRIMARY KEY,student_id INTEGER NOT NULL REFERENCES users(id),lesson_id INTEGER REFERENCES lessons(id),topic TEXT NOT NULL,question TEXT NOT NULL,explanation TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS lesson_progress(id INTEGER PRIMARY KEY,student_id INTEGER NOT NULL REFERENCES users(id),lesson_id INTEGER NOT NULL REFERENCES lessons(id),status TEXT NOT NULL DEFAULT 'started',score REAL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(student_id,lesson_id));
+  CREATE TABLE IF NOT EXISTS exam_questions(id INTEGER PRIMARY KEY,language_code TEXT NOT NULL,question TEXT NOT NULL,options_json TEXT NOT NULL,correct_answer TEXT NOT NULL,explanation TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS exam_answers(id INTEGER PRIMARY KEY,attempt_id INTEGER NOT NULL REFERENCES exam_attempts(id) ON DELETE CASCADE,question_id INTEGER NOT NULL REFERENCES exam_questions(id),answer TEXT NOT NULL,UNIQUE(attempt_id,question_id));
   """)
   # Carefully curated starter lessons, authored for this application. Catalogue status is not a claim of 200 complete courses.
   starters=[
@@ -216,6 +218,19 @@ def init_academy_tables():
     ("Saludos","Hola = bonjour/salut. Buenos días = bonjour le matin. Me llamo Ana = je m’appelle Ana.","Traduce: « Me llamo Ana ».","Je m’appelle Ana."),
     ("Ser y estar","Ser décrit souvent l’identité : soy estudiante. Estar décrit souvent un état ou une localisation : estoy aquí.","Complète : Yo ___ estudiante. (soy/estoy)","soy"),
     ("Preguntas","Qué = quoi/que, dónde = où, quién = qui. Exemple : ¿Dónde vives? = Où habites-tu ?","Quel mot espagnol signifie « où » ?","dónde")])]
+  starter_questions=[
+   ("en","Which sentence is correct?",["She speak English.","She speaks English.","She speaking English."],"She speaks English.","With he/she/it, the present simple verb usually takes -s."),
+   ("en","What does \"Where are you from?\" mean?",["Où habites-tu ?","D’où viens-tu ?","Quel âge as-tu ?"],"D’où viens-tu ?","Where are you from asks about origin."),
+   ("en","Choose the correct article: ___ apple",["a","an","thee"],"an","Use an before a vowel sound."),
+   ("fr","Complète : Je ___ élève.",["suis","es","est"],"suis","Avec je, le verbe être se conjugue suis."),
+   ("fr","Quel article convient : ___ maison ?",["le","la","un"],"la","Maison est un nom féminin : la maison."),
+   ("fr","Dans « Amina lit », quel est le verbe ?",["Amina","lit","aucun"],"lit","Le verbe exprime l’action : lit."),
+   ("es","Complète : Yo ___ estudiante.",["soy","eres","es"],"soy","Avec yo, ser se conjugue soy."),
+   ("es","Que signifie « hola » ?",["Au revoir","Bonjour/salut","Merci"],"Bonjour/salut","Hola est une salutation."),
+   ("es","Quel mot signifie « où » ?",["quién","cuándo","dónde"],"dónde","Dónde demande un lieu.") ]
+  for code,q,opts,correct,explain in starter_questions:
+   if not db.execute("SELECT id FROM exam_questions WHERE language_code=? AND question=?",(code,q)).fetchone():
+    db.execute("INSERT INTO exam_questions(language_code,question,options_json,correct_answer,explanation) VALUES(?,?,?,?,?)",(code,q,json.dumps(opts,ensure_ascii=False),correct,explain))
   for code,title,level,desc,lessons in starters:
    row=db.execute("SELECT id FROM courses WHERE language_code=? AND level=?",(code,level)).fetchone()
    if not row:
@@ -378,6 +393,8 @@ def grade_submission(submission_id:int,payload:GradeSubmissionIn,user=Depends(re
   if not row: raise HTTPException(404,"Rendu introuvable")
   if user["role"]!="admin" and row["teacher_id"]!=user["id"]: raise HTTPException(403,"Accès refusé")
   db.execute("UPDATE submissions SET score=?,feedback=? WHERE id=?",(payload.score,payload.feedback,submission_id))
+  detail=db.execute("SELECT s.student_id,a.title,c.name FROM submissions s JOIN assignments a ON a.id=s.assignment_id JOIN classes c ON c.id=a.class_id WHERE s.id=?",(submission_id,)).fetchone()
+  db.execute("INSERT INTO grades(student_id,subject,assessment,score,coefficient) VALUES(?,?,?,?,1)",(detail["student_id"],detail["name"],detail["title"],payload.score))
  return {"graded":True}
 @app.post("/api/messages",status_code=201)
 def send_message(payload:MessageIn,user=Depends(current_user)):
@@ -498,3 +515,54 @@ def admin_overview(user=Depends(require_roles("admin"))):
    result[table]=db.execute("SELECT COUNT(*) AS n FROM "+table).fetchone()["n"]
   result["recent_audit"]=[dict(r) for r in db.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 30").fetchall()]
  return result
+
+
+class ExamAnswerIn(BaseModel):
+ question_id:int
+ answer:str=Field(min_length=1,max_length=500)
+@app.get("/api/exams/{attempt_id}/questions")
+def exam_questions(attempt_id:int,user=Depends(require_roles("student"))):
+ with db_session() as db:
+  attempt=db.execute("SELECT * FROM exam_attempts WHERE id=? AND student_id=?",(attempt_id,user["id"])).fetchone()
+  if not attempt: raise HTTPException(404,"Tentative introuvable")
+  if attempt["status"]!="in_progress": raise HTTPException(409,"Cet examen n'est plus actif")
+  started=datetime.fromisoformat(attempt["started_at"]).replace(tzinfo=timezone.utc) if attempt["started_at"] else datetime.now(timezone.utc)
+  if (datetime.now(timezone.utc)-started).total_seconds()>1200:
+   db.execute("UPDATE exam_attempts SET status='cancelled' WHERE id=?",(attempt_id,))
+   raise HTTPException(409,"Temps écoulé : examen annulé, recommencez avec de nouvelles questions.")
+  rows=db.execute("SELECT id,question,options_json FROM exam_questions WHERE language_code=?",(attempt["language_code"],)).fetchall()
+  rows=sorted(rows,key=lambda r:hashlib.sha256("{}:{}".format(attempt["question_seed"],r["id"]).encode()).hexdigest())[:5]
+ return {"attempt_id":attempt_id,"duration_seconds":1200,"questions":[{"id":r["id"],"question":r["question"],"options":json.loads(r["options_json"])} for r in rows]}
+@app.post("/api/exams/{attempt_id}/answer")
+def answer_exam(attempt_id:int,payload:ExamAnswerIn,user=Depends(require_roles("student"))):
+ with db_session() as db:
+  attempt=db.execute("SELECT * FROM exam_attempts WHERE id=? AND student_id=?",(attempt_id,user["id"])).fetchone()
+  if not attempt: raise HTTPException(404,"Tentative introuvable")
+  if attempt["status"]!="in_progress": raise HTTPException(409,"Cet examen n'est plus actif")
+  started=datetime.fromisoformat(attempt["started_at"]).replace(tzinfo=timezone.utc)
+  if (datetime.now(timezone.utc)-started).total_seconds()>1200:
+   db.execute("UPDATE exam_attempts SET status='cancelled' WHERE id=?",(attempt_id,))
+   raise HTTPException(409,"Temps écoulé : examen annulé.")
+  q=db.execute("SELECT id FROM exam_questions WHERE id=? AND language_code=?",(payload.question_id,attempt["language_code"])).fetchone()
+  if not q: raise HTTPException(404,"Question invalide")
+  db.execute("INSERT INTO exam_answers(attempt_id,question_id,answer) VALUES(?,?,?) ON CONFLICT(attempt_id,question_id) DO UPDATE SET answer=excluded.answer",(attempt_id,payload.question_id,payload.answer.strip()))
+ return {"saved":True}
+@app.post("/api/exams/{attempt_id}/submit")
+def submit_exam(attempt_id:int,user=Depends(require_roles("student"))):
+ with db_session() as db:
+  attempt=db.execute("SELECT * FROM exam_attempts WHERE id=? AND student_id=?",(attempt_id,user["id"])).fetchone()
+  if not attempt: raise HTTPException(404,"Tentative introuvable")
+  if attempt["status"]!="in_progress": raise HTTPException(409,"Cet examen n'est plus actif")
+  started=datetime.fromisoformat(attempt["started_at"]).replace(tzinfo=timezone.utc)
+  if (datetime.now(timezone.utc)-started).total_seconds()>1200:
+   db.execute("UPDATE exam_attempts SET status='cancelled' WHERE id=?",(attempt_id,))
+   raise HTTPException(409,"Temps écoulé : examen annulé.")
+  qs=db.execute("SELECT id,correct_answer,explanation FROM exam_questions WHERE language_code=?",(attempt["language_code"],)).fetchall()
+  qs=sorted(qs,key=lambda r:hashlib.sha256("{}:{}".format(attempt["question_seed"],r["id"]).encode()).hexdigest())[:5]
+  answers=db.execute("SELECT question_id,answer FROM exam_answers WHERE attempt_id=?",(attempt_id,)).fetchall()
+  given={r["question_id"]:r["answer"].strip().casefold() for r in answers}
+  correct=sum(1 for q in qs if given.get(q["id"])==q["correct_answer"].strip().casefold())
+  count=len(qs); score=round((correct/count)*20,2) if count else 0
+  db.execute("UPDATE exam_attempts SET status='submitted' WHERE id=?",(attempt_id,))
+  db.execute("INSERT INTO grades(student_id,subject,assessment,score,coefficient) VALUES(?,?,?,?,1)",(user["id"],"Langue "+attempt["language_code"].upper(),"Examen "+str(attempt_id),score))
+ return {"attempt_id":attempt_id,"status":"submitted","correct":correct,"total":count,"score_out_of_20":score}
