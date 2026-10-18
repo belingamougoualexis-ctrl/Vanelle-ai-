@@ -50,9 +50,9 @@ jobs:
           done
           curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
       - name: Download real model weights
-        run: docker exec lucky-ollama ollama pull qwen2.5:0.5b
+        run: docker exec lucky-ollama ollama pull qwen2.5:1.5b
       - name: Generate exercises through the application API using the actual model
         env:
           LUCKY_OLLAMA_URL: http://127.0.0.1:11434/api/generate
-          LUCKY_PEDAGOGY_MODEL: qwen2.5:0.5b
+          LUCKY_PEDAGOGY_MODEL: qwen2.5:1.5b
         run: pytest -q tests/test_ai_integration.py -m ai_integration
