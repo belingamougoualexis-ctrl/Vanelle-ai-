@@ -1,4 +1,4 @@
-# Lucky Languages Academy
+# LinguaBloom Academy
 
 A standalone French-first language-school web application added under `lucky-languages/`. The existing Vanelle Android app is not replaced or rewritten.
 
@@ -44,11 +44,18 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 If the administrator account already exists, changing these variables does not overwrite its password. Administrators can change roles through the administration panel.
 
+## Learning paths
+
+- LinguaBloom Academy branding and a polished violet, mint, coral and warm-gold design.
+- CEFR A1–C2 learning paths for English, French and Spanish, with three authored lessons per level from A1 through C2.
+- Introductory courses for German, Portuguese, Mandarin Chinese, Japanese, Korean, Arabic and Russian.
+- Interactive 3D teacher gallery with six selectable rigged avatars, camera controls, rotation toggle and optional GLB import (up to 500 MB). Avatars and the viewer are loaded from external CDNs and require Internet.
+
 ## Modules implemented
 
 - Registration/login, opaque bearer sessions and role-based permissions
 - Catalogue metadata for 200+ language identifiers; catalogue entries are not claims that full lessons are available
-- Starter A1 courses/lessons for English, French and Spanish
+- A1–C2 courses for English, French and Spanish, plus introductory courses in seven additional languages
 - Lesson progress and saved difficulty history
 - Local Ollama tutor. `docker compose up --build` starts an Ollama model service and downloads `qwen2.5:1.5b` into a persistent model volume on first launch; this initial download requires Internet and substantial disk/RAM. No cloud AI API is used by the tutor
 - Timed multiple-choice exams for English, French and Spanish, server-side answer checking and scoring, 20-minute deadline and exit cancellation
@@ -71,7 +78,7 @@ The separate real-model integration test is `pytest -q tests/test_ai_integration
 
 ## Important scope and safety notes
 
-- The metadata catalogue is broad, but complete verified course paths currently exist only for the starter languages/content. Do not advertise every catalogue language as a complete course.
+- The catalogue includes 200+ language identifiers, but only the ten languages listed in the pedagogy module have a starter exercise bank. Full A1–C2 authored course paths currently exist for English, French and Spanish; seven additional languages have introductory A1 courses. Do not advertise every catalogue entry as a complete course.
 - The starter question bank is limited; exam support must be expanded with reviewed questions before use for formal certification.
 - Exit detection relies on a client signal. Browsers and mobile operating systems cannot guarantee detection of every app switch, device shutdown, network loss or tampering. The server enforces status and time when requests reach it.
 - Docker Compose includes a local Ollama model service and automatically pulls the Qwen 1.5B weights into a persistent volume on first start. The multi-hundred-MB/GB model weights are downloaded at installation time, not checked into the source ZIP or Git repository. This first setup needs Internet; inference thereafter is local. Mobile-browser clients still call the server and do not run the model directly on the phone.
