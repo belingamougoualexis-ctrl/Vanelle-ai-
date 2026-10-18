@@ -152,17 +152,22 @@ def _local_ai(req: GenerateRequest) -> list[dict[str, Any]] | None:
     try:
         for attempt in range(2):
             attempt_prompt = dict(prompt)
+            output_format = response_schema
             if attempt:
+                output_format = "json"
                 attempt_prompt["output_instruction"] = (
-                    "Retry: output valid complete JSON only. One short question, three short options, "
-                    "the exact answer option, a brief explanation and skill. No extra text."
+                    "Retry: output valid complete JSON only, with no markdown or commentary. "
+                    "Return an object containing a questions array with exactly one question object. "
+                    "The object must have question, options (three short strings), answer (exactly one option), "
+                    "explanation, skill. For Mandarin also include character, pinyin, meaning, and writing_prompt. "
+                    "Keep every string short and escape quotation marks correctly."
                 )
             payload = json.dumps({
                 "model":model,
                 "prompt":json.dumps(attempt_prompt,ensure_ascii=False),
                 "stream":False,
-                "format":response_schema,
-                "options":{"num_predict":768 if attempt else 512,"temperature":0.0},
+                "format":output_format,
+                "options":{"num_predict":1024 if attempt else 512,"temperature":0.0},
             },ensure_ascii=False).encode()
             request = urllib.request.Request(endpoint,data=payload,headers={"Content-Type":"application/json"},method="POST")
             try:
