@@ -1,0 +1,57 @@
+name: LinguaBloom Android APK
+
+on:
+  push:
+    branches: ["feat/brand-download-resume-full-test"]
+    paths:
+      - "lucky-languages/android/**"
+      - ".github/workflows/linguabloom-android.yml"
+  pull_request:
+    paths:
+      - "lucky-languages/android/**"
+      - ".github/workflows/linguabloom-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lucky-languages/android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Run unit tests
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+      - name: Assemble installable debug APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Verify APK
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
+          grep -q "package: name='com.linguabloom.academy'" apk-badging.txt
+          grep -q "versionName='1.0.0'" apk-badging.txt
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinguaBloom-Academy-Android-1.0.0
+          path: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
