@@ -1,86 +1,39 @@
-function renderTeacherStudio(c) {
-  const html = '<div class="teacher-studio">' +
-    '<div class="teacher-stage" id="teacherStage">' +
-      '<iframe id="teacherViewerFrame" title="Visualiseur isolé du professeur 3D" sandbox="allow-scripts" referrerpolicy="no-referrer" style="width:100%;height:100%;min-height:320px;border:0;background:transparent;z-index:1"></iframe>' +
-      '<div class="teacher-empty" id="teacherEmpty"><div class="orb">✦</div><h3>Votre professeur en 3D</h3><p>Importez un modèle humanoïde GLB pour le visualiser, le faire pivoter et examiner son rendu dans la salle de cours.</p></div>' +
-    '</div><div class="teacher-controls">' +
-      '<div class="teacher-feature"><strong>01 · Modèle 3D réel</strong><p>Format GLB recommandé, avec maillage, textures et matériaux. Le visualiseur ne remplace pas la création d’un modèle photoréaliste.</p></div>' +
-      '<label class="model-file"><strong>Importer le modèle du professeur</strong><input id="teacherModelFile" type="file" accept=".glb,model/gltf-binary"><span class="model-note">Le fichier reste dans le navigateur et n’est pas envoyé à l’API de l’application. Le visualiseur s’exécute dans un cadre isolé sans accès au stockage de session de l’application.</span></label>' +
-      '<div id="teacherModelStatus" class="model-status" role="status" aria-live="polite">Initialisation du visualiseur…</div>' +
-      '<div class="row"><button type="button" onclick="resetTeacherModel()" class="secondary">Réinitialiser la vue</button><button type="button" onclick="toggleTeacherMotion()" class="secondary" id="teacherMotionBtn">Arrêter la rotation</button></div>' +
-      '<div class="teacher-feature"><strong>02 · Pour un rendu ultra-réaliste</strong><p>Il faut un asset humain de haute qualité avec textures de peau, cheveux, vêtements et idéalement rig/animations. Un simple fichier 3D stylisé ne devient pas photoréaliste par le visualiseur seul.</p></div>' +
-      '<p class="model-note">Le visualiseur 3D est téléchargé depuis Google CDN et nécessite Internet. Il s’exécute dans une iframe sandboxée, séparée de la session de l’application.</p>' +
-    '</div></div>';
-  cleanupTeacherStudio();
-  c.innerHTML = panel('Studio des professeurs 3D', 'Prévisualisez un véritable modèle humanoïde 3D dans l’espace de cours. Le réalisme dépend du fichier 3D importé : aucun avatar photoréaliste n’est fourni artificiellement avec cette version.', html);
-  const frame = document.getElementById('teacherViewerFrame');
-  const file = document.getElementById('teacherModelFile');
-  window.teacherViewerReady = false;
-  window.teacherViewerPendingFile = null;
-  window.teacherViewerMessageHandler = function(event) {
-    if (!frame || event.source !== frame.contentWindow || !event.data || typeof event.data.type !== 'string') return;
-    if (event.data.type === 'viewer-ready') {
-      window.teacherViewerReady = true;
-      setTeacherStatus('Visualiseur prêt. Sélectionne un modèle GLB.');
-      if (window.teacherViewerPendingFile) sendTeacherModel(window.teacherViewerPendingFile);
-    } else if (event.data.type === 'viewer-status') {
-      setTeacherStatus(String(event.data.message || 'Visualiseur prêt.'), Boolean(event.data.error));
-      if (event.data.loaded) document.getElementById('teacherStage')?.classList.add('has-model');
-    }
-  };
-  window.addEventListener('message', window.teacherViewerMessageHandler);
-  frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}model-viewer{display:block;width:100%;height:100%;min-height:320px;background:transparent;--poster-color:transparent}</style></head><body><model-viewer id="mv" alt="Modèle 3D du professeur" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" interaction-prompt="auto"></model-viewer><script type="module">import "https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js";const mv=document.getElementById("mv");let objectUrl=null;window.addEventListener("message",async e=>{if(e.source!==parent||!e.data)return;if(e.data.type==="reset-model"){mv.removeAttribute("src");if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=null;parent.postMessage({type:"viewer-status",message:"Vue réinitialisée."},"*");return}if(e.data.type==="toggle-motion"){if(mv.hasAttribute("auto-rotate"))mv.removeAttribute("auto-rotate");else mv.setAttribute("auto-rotate","");return}if(e.data.type!=="model-file"||!(e.data.buffer instanceof ArrayBuffer))return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(new Blob([e.data.buffer],{type:"model/gltf-binary"}));mv.src=objectUrl;parent.postMessage({type:"viewer-status",message:"Chargement de "+String(e.data.name||"modèle")+"…"},"*")});mv.addEventListener("load",()=>parent.postMessage({type:"viewer-status",message:"Modèle 3D chargé avec succès.",loaded:true},"*"));mv.addEventListener("error",()=>parent.postMessage({type:"viewer-status",message:"Impossible de lire ce GLB. Vérifie son intégrité et ses textures.",error:true},"*"));parent.postMessage({type:"viewer-ready"},"*");window.addEventListener("pagehide",()=>{if(objectUrl)URL.revokeObjectURL(objectUrl)});</script></body></html>';
-  file.addEventListener('change', async function(e) {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.glb')) { setTeacherStatus('Choisis un fichier .glb pour une prévisualisation fiable.', true); return; }
-    if (f.size > 500 * 1024 * 1024) { setTeacherStatus('Le fichier dépasse la limite de prévisualisation de 500 Mo.', true); return; }
-    window.teacherViewerPendingFile = f;
-    if (window.teacherViewerReady) await sendTeacherModel(f);
-    setTeacherStatus('Préparation de ' + f.name + '…');
-  });
-}
-async function sendTeacherModel(file) {
-  const frame = document.getElementById('teacherViewerFrame');
-  if (!frame || !file) return;
-  try {
-    const buffer = await file.arrayBuffer();
-    if (!document.getElementById('teacherViewerFrame')) return;
-    frame.contentWindow.postMessage({type:'model-file', name:file.name, buffer}, '*', [buffer]);
-    document.getElementById('teacherStage')?.classList.add('has-model');
-    setTeacherStatus('Modèle transmis au visualiseur isolé : ' + file.name + ' · ' + (file.size / 1024 / 1024).toFixed(1) + ' Mo');
-  } catch (err) {
-    setTeacherStatus('Impossible de lire ce fichier : ' + String(err && err.message || err), true);
+
+(function(){
+  if(!document.getElementById('lucky-vibrant-identity')){
+    const s=document.createElement('style');s.id='lucky-vibrant-identity';
+    s.textContent=':root{--lucky-blue:#3857e8;--lucky-purple:#7857e8;--lucky-mango:#ffb84d;--lucky-coral:#ff6f78;--lucky-mint:#3bc9a7;--lucky-ink:#202443;--lucky-paper:#f8f7ff}body{background:radial-gradient(ellipse at 0 0,#c9f8e755,transparent 32%),radial-gradient(ellipse at 100% 8%,#ffd4a755,transparent 27%),#f8f7ff;color:#202443}.top{background:linear-gradient(105deg,#252a68,#4d43a8 56%,#6d46b9);box-shadow:0 12px 32px #34317c30}.brand{font-size:21px}.brand span{color:#ffd17b}.hero{background:linear-gradient(118deg,#3857e8,#6850d9 48%,#a34bb9 78%,#ed797e 120%);border:1px solid #ffffff55;box-shadow:0 24px 60px #5b49b52c;border-radius:30px}.hero .eyebrow{color:#ffe4a4}.hero-stat{background:#ffffff20;border-color:#ffffff48}.hero-stat strong{color:#ffe19b}button{background:linear-gradient(135deg,#3857e8,#7451d7);box-shadow:0 7px 18px #4e48d52b;border-radius:13px}.secondary{background:#eeedff;color:#443b99;box-shadow:none}.nav{border-color:#e6e2fb;background:#ffffffed;box-shadow:0 14px 40px #413b7810;border-radius:22px}.nav button.active,.nav button:hover{background:linear-gradient(100deg,#e3f9f2,#eeebff);color:#4d43b2}.nav .navlabel{color:#8b81bb}.panel{border-color:#e9e5f7;background:#ffffffef;border-radius:22px;box-shadow:0 14px 38px #443b7910}.panel h2{color:#292b59}.tile{border:1px solid #e9e5f8;border-radius:18px;background:linear-gradient(155deg,#fff,#fbfaff)}.tile:nth-child(4n+1){border-top:3px solid #3bc9a7}.tile:nth-child(4n+2){border-top:3px solid #ffb84d}.tile:nth-child(4n+3){border-top:3px solid #8c70ef}.tile:nth-child(4n){border-top:3px solid #ff7e8a}.pill{background:#e2fbf3;color:#137b68}input,select,textarea{border-color:#dedaf0;background:#fdfcff}input:focus,select:focus,textarea:focus{border-color:#8b79f1;outline:3px solid #e8e1ff}.lessonbody{background:linear-gradient(135deg,#effbf7,#f5f0ff,#fff8ed);border-color:#e8e2fb}.teacher-studio{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);gap:18px}.teacher-stage{min-height:450px;border-radius:25px;background:radial-gradient(ellipse at 50% 10%,#6358c8,#302f75 48%,#202448);border:1px solid #ffffff85;box-shadow:inset 0 1px 0 #ffffff30,0 20px 45px #37347b22}.teacher-stage:before{background:radial-gradient(circle at 15% 18%,#ffce6d30,transparent 25%),radial-gradient(circle at 85% 32%,#51e5c430,transparent 27%),linear-gradient(transparent 62%,#17183d99)}.teacher-stage model-viewer{height:450px}.teacher-empty .orb{background:linear-gradient(145deg,#ffcd72,#ff7e8a 48%,#8a70f0);border-radius:26px}.teacher-empty p{color:#e0defd}.teacher-feature{padding:16px;border:1px solid #e9e4fa;border-radius:17px;background:linear-gradient(135deg,#fff,#f8f5ff)}.teacher-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.teacher-card{border:1px solid #e5e1f6;border-radius:16px;padding:10px;background:#fff;display:flex;gap:10px;align-items:center;min-width:0}.teacher-card img{width:64px;height:76px;object-fit:cover;object-position:top center;border-radius:12px;background:#eee8ff;flex-shrink:0}.teacher-card strong{display:block;font-size:12px;line-height:1.3;color:#34316f}.teacher-card small{display:block;font-size:10px;color:#8585a0;margin:4px 0 7px}.teacher-card button{font-size:11px;padding:7px 9px;border-radius:9px;box-shadow:none}.model-file{border:1px dashed #9a8dec;border-radius:16px;padding:15px;background:linear-gradient(130deg,#f2f0ff,#f0fff9)}.model-file input{margin-top:10px}.model-status{font-size:12px;color:#247f70;font-weight:750;overflow-wrap:anywhere;min-height:18px}.teacher-attribution{font-size:11px;line-height:1.6;color:#777997}.teacher-attribution a{color:#5d4bc7}@media(max-width:800px){.teacher-studio{grid-template-columns:1fr}.teacher-stage,.teacher-stage model-viewer{min-height:320px;height:320px}}@media(max-width:440px){.teacher-gallery{grid-template-columns:1fr}.teacher-card img{width:58px;height:68px}}';
+    document.head.appendChild(s);
   }
+})();
+const LUCKY_AVATAR_BASE='https://cdn.jsdelivr.net/gh/c-frame/valid-avatars-glb@c539a28/';
+const LUCKY_TEACHERS=[
+{id:'black-f-1',name:'Professeure Aya',detail:'Anglais · Business',model:'avatars/Black/Black_F_1_Busi.glb',image:'images/Black_F_1_Busi.jpg'},
+{id:'black-m-1',name:'Professeur Malik',detail:'Français · Business',model:'avatars/Black/Black_M_1_Busi.glb',image:'images/Black_M_1_Busi.jpg'},
+{id:'asian-f-1',name:'Professeure Mei',detail:'Conversation · Business',model:'avatars/Asian/Asian_F_1_Busi.glb',image:'images/Asian_F_1_Busi.jpg'},
+{id:'hispanic-m-1',name:'Professeur Gabriel',detail:'Prononciation · Business',model:'avatars/Hispanic/Hispanic_M_1_Busi.glb',image:'images/Hispanic_M_1_Busi.jpg'},
+{id:'white-f-1',name:'Professeure Clara',detail:'Grammaire · Business',model:'avatars/White/White_F_1_Busi.glb',image:'images/White_F_1_Busi.jpg'},
+{id:'mena-m-1',name:'Professeur Sami',detail:'Vocabulaire · Business',model:'avatars/MENA/MENA_M_1_Busi.glb',image:'images/MENA_M_1_Busi.jpg'}
+];
+function renderTeacherStudio(c){
+ cleanupTeacherStudio();
+ const gallery=LUCKY_TEACHERS.map(t=>'<article class="teacher-card"><img loading="lazy" src="'+LUCKY_AVATAR_BASE+t.image+'" alt="Aperçu du modèle 3D '+t.name+'"><div style="min-width:0"><strong>'+t.name+'</strong><small>'+t.detail+'</small><button type="button" onclick="loadTeacherPreset(\''+t.id+'\')">Choisir</button></div></article>').join('');
+ const html='<div class="teacher-studio"><div class="teacher-stage" id="teacherStage"><iframe id="teacherViewerFrame" title="Visualiseur des professeurs 3D" sandbox="allow-scripts" referrerpolicy="no-referrer" style="width:100%;height:100%;min-height:320px;border:0;background:transparent;z-index:1"></iframe><div class="teacher-empty" id="teacherEmpty"><div class="orb">✦</div><h3>Bienvenue dans la classe immersive</h3><p>Choisis un professeur pour faire apparaître son modèle 3D. Fais glisser pour le regarder sous tous les angles.</p></div></div><div class="teacher-controls"><div class="teacher-feature"><strong>Une classe, plusieurs personnalités</strong><p>Des avatars 3D humanoïdes texturés, disponibles immédiatement — aucun fichier à rechercher pour commencer.</p></div><div class="teacher-gallery" aria-label="Galerie des professeurs 3D">'+gallery+'</div><label class="model-file"><strong>Ajouter ton propre modèle 3D</strong><input id="teacherModelFile" type="file" accept=".glb,model/gltf-binary"><span class="model-note">Format GLB. Les fichiers personnels sont lus localement dans le navigateur et ne sont pas envoyés au serveur.</span></label><div id="teacherModelStatus" class="model-status" role="status" aria-live="polite">Sélectionne un professeur dans la galerie.</div><div class="row"><button type="button" onclick="resetTeacherModel()" class="secondary">Réinitialiser</button><button type="button" onclick="toggleTeacherMotion()" class="secondary" id="teacherMotionBtn">Arrêter la rotation</button></div><div class="teacher-feature"><strong>À propos des modèles</strong><p>Ce sont des avatars 3D humanoïdes texturés et riggés, pas des scans photoréalistes de personnes. La galerie utilise la bibliothèque VALID, créée pour représenter des apparences diverses.</p></div><p class="teacher-attribution">Modèles : VALID (Tiffany D. Do, Steve Zelenty, Mar Gonzalez-Franco et Ryan P. McMahan), conversions glTF par c-frame. <a href="https://github.com/c-frame/valid-avatars-glb" target="_blank" rel="noopener">Dépôt des modèles</a> · <a href="https://doi.org/10.3389/frvir.2023.1248915" target="_blank" rel="noopener">Publication scientifique</a>. Le visualiseur model-viewer est fourni par Google et nécessite Internet.</p></div></div>';
+ c.innerHTML=panel('La classe immersive','Des couleurs vivantes, des professeurs 3D et une expérience pensée pour donner envie d’apprendre.',html);
+ const frame=document.getElementById('teacherViewerFrame'),file=document.getElementById('teacherModelFile');
+ window.teacherViewerReady=false;window.teacherViewerPendingFile=null;
+ window.teacherViewerMessageHandler=function(event){
+  if(!frame||event.source!==frame.contentWindow||!event.data||typeof event.data.type!=='string')return;
+  if(event.data.type==='viewer-ready'){window.teacherViewerReady=true;setTeacherStatus('Studio prêt. Choisis un professeur ou importe un GLB.');if(window.teacherViewerPendingFile)sendTeacherModel(window.teacherViewerPendingFile)}
+  else if(event.data.type==='viewer-status'){setTeacherStatus(String(event.data.message||'Studio prêt.'),Boolean(event.data.error));if(event.data.loaded)document.getElementById('teacherStage')?.classList.add('has-model');if(event.data.cleared)document.getElementById('teacherStage')?.classList.remove('has-model')}
+ };
+ window.addEventListener('message',window.teacherViewerMessageHandler);
+ frame.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}model-viewer{display:block;width:100%;height:100%;min-height:320px;background:transparent;--poster-color:transparent}</style></head><body><model-viewer id="mv" alt="Avatar du professeur Lucky Languages" camera-controls auto-rotate rotation-per-second="12deg" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" interaction-prompt="auto" camera-orbit="0deg 75deg auto" field-of-view="30deg"></model-viewer><script type="module">import "https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js";const mv=document.getElementById("mv");let objectUrl=null;const say=(message,extra={})=>parent.postMessage({type:"viewer-status",message,...extra},"*");function clear(){mv.removeAttribute("src");if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=null;say("Modèle retiré.",{cleared:true})}window.addEventListener("message",e=>{if(e.source!==parent||!e.data)return;if(e.data.type==="reset-model"){clear();return}if(e.data.type==="toggle-motion"){if(mv.hasAttribute("auto-rotate"))mv.removeAttribute("auto-rotate");else mv.setAttribute("auto-rotate","");return}if(e.data.type==="preset-model"&&typeof e.data.url==="string"&&e.data.url.startsWith("https://cdn.jsdelivr.net/")){clear();mv.src=e.data.url;say("Chargement de "+String(e.data.name||"professeur")+"…");return}if(e.data.type==="model-file"&&e.data.buffer instanceof ArrayBuffer){clear();objectUrl=URL.createObjectURL(new Blob([e.data.buffer],{type:"model/gltf-binary"}));mv.src=objectUrl;say("Chargement du modèle personnel "+String(e.data.name||"GLB")+"…")}});mv.addEventListener("load",()=>say("Professeur 3D chargé. Fais glisser pour le regarder sous tous les angles.",{loaded:true}));mv.addEventListener("error",()=>say("Le modèle n’a pas pu être chargé. Vérifie ta connexion puis réessaie.",{error:true}));parent.postMessage({type:"viewer-ready"},"*");window.addEventListener("pagehide",()=>{if(objectUrl)URL.revokeObjectURL(objectUrl)});</script></body></html>';
+ file.addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(!f.name.toLowerCase().endsWith('.glb')){setTeacherStatus('Choisis un fichier .glb.',true);return}if(f.size>500*1024*1024){setTeacherStatus('Le fichier dépasse la limite de 500 Mo.',true);return}window.teacherViewerPendingFile=f;if(window.teacherViewerReady)await sendTeacherModel(f);setTeacherStatus('Préparation de '+f.name+'…')});
 }
-function setTeacherStatus(message, isError) {
-  const el = document.getElementById('teacherModelStatus');
-  if (el) { el.textContent = message; el.style.color = isError ? '#c74757' : '#0b8a72'; }
-}
-function resetTeacherModel() {
-  const frame = document.getElementById('teacherViewerFrame');
-  if (frame && frame.contentWindow) frame.contentWindow.postMessage({type:'reset-model'}, '*');
-  window.teacherViewerPendingFile = null;
-  const stage = document.getElementById('teacherStage');
-  if (stage) stage.classList.remove('has-model');
-  const input = document.getElementById('teacherModelFile');
-  if (input) input.value = '';
-  setTeacherStatus('Aucun modèle chargé.');
-}
-function toggleTeacherMotion() {
-  const frame = document.getElementById('teacherViewerFrame');
-  const btn = document.getElementById('teacherMotionBtn');
-  if (!frame || !btn) return;
-  frame.contentWindow.postMessage({type:'toggle-motion'}, '*');
-  btn.textContent = btn.textContent.includes('Arrêter') ? 'Reprendre la rotation' : 'Arrêter la rotation';
-}
-function cleanupTeacherStudio() {
-  if (window.teacherViewerMessageHandler) {
-    window.removeEventListener('message', window.teacherViewerMessageHandler);
-    window.teacherViewerMessageHandler = null;
-  }
-  const frame = document.getElementById('teacherViewerFrame');
-  if (frame) frame.srcdoc = '';
-  window.teacherViewerReady = false;
-  window.teacherViewerPendingFile = null;
-}
+function loadTeacherPreset(id){const t=LUCKY_TEACHERS.find(x=>x.id===id),frame=document.getElementById('teacherViewerFrame');if(!t||!frame||!frame.contentWindow)return;window.teacherViewerPendingFile=null;frame.contentWindow.postMessage({type:'preset-model',name:t.name,url:LUCKY_AVATAR_BASE+t.model},'*');document.getElementById('teacherStage')?.classList.add('has-model');document.querySelectorAll('.teacher-card').forEach(card=>{card.style.outline=card.querySelector('strong')?.textContent===t.name?'2px solid #8a70f0':'none'});setTeacherStatus('Chargement de '+t.name+'…')}
+async function sendTeacherModel(file){const frame=document.getElementById('teacherViewerFrame');if(!frame||!file)return;try{const buffer=await file.arrayBuffer();if(!document.getElementById('teacherViewerFrame'))return;frame.contentWindow.postMessage({type:'model-file',name:file.name,buffer},'*',[buffer]);document.getElementById('teacherStage')?.classList.add('has-model');setTeacherStatus('Modèle personnel : '+file.name+' · '+(file.size/1024/1024).toFixed(1)+' Mo')}catch(err){setTeacherStatus('Impossible de lire ce fichier : '+String(err&&err.message||err),true)}}
+function setTeacherStatus(message,isError){const el=document.getElementById('teacherModelStatus');if(el){el.textContent=message;el.style.color=isError?'#c74757':'#247f70'}}
+function resetTeacherModel(){const frame=document.getElementById('teacherViewerFrame');if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:'reset-model'},'*');window.teacherViewerPendingFile=null;document.getElementById('teacherStage')?.classList.remove('has-model');const input=document.getElementById('teacherModelFile');if(input)input.value='';setTeacherStatus('Aucun modèle chargé. Choisis un professeur dans la galerie.')}
+function toggleTeacherMotion(){const frame=document.getElementById('teacherViewerFrame'),btn=document.getElementById('teacherMotionBtn');if(!frame||!btn)return;frame.contentWindow.postMessage({type:'toggle-motion'},'*');btn.textContent=btn.textContent.includes('Arrêter')?'Reprendre la rotation':'Arrêter la rotation'}
+function cleanupTeacherStudio(){if(window.teacherViewerMessageHandler){window.removeEventListener('message',window.teacherViewerMessageHandler);window.teacherViewerMessageHandler=null}const frame=document.getElementById('teacherViewerFrame');if(frame)frame.srcdoc='';window.teacherViewerReady=false;window.teacherViewerPendingFile=null}
