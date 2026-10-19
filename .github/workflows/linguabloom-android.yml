@@ -2,7 +2,7 @@ name: LinguaBloom Android APK
 
 on:
   push:
-    branches: ["feat/brand-download-resume-full-test"]
+    branches: ["feat/brand-download-resume-full-test", "feat/offline-academy-android"]
     paths:
       - "lucky-languages/android/**"
       - ".github/workflows/linguabloom-android.yml"
@@ -41,6 +41,28 @@ jobs:
           gradle-version: "8.10.2"
       - name: Run unit tests
         run: gradle testDebugUnitTest --no-daemon --stacktrace
+      - name: Validate bundled offline course pack
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assets = Path("app/src/main/assets/offline")
+          pack = json.loads((assets / "course-pack-v1.json").read_text(encoding="utf-8"))
+          assert pack["offline_ready"] is True
+          assert len(pack["languages"]) == 10, "Expected ten starter languages"
+          ids = []
+          for language in pack["languages"]:
+              assert language["lessons"], f"No lessons for {language['code']}"
+              for lesson in language["lessons"]:
+                  ids.append(lesson["id"])
+                  exercise = lesson["exercise"]
+                  assert exercise["answer"] in exercise["choices"], lesson["id"]
+          assert len(ids) == len(set(ids)), "Lesson IDs must be unique"
+          page = (assets / "index.html").read_text(encoding="utf-8")
+          assert "EMBEDDED_COURSE_PACK=" in page and "localStorage" in page
+          assert "https://" not in page and "http://" not in page, "Offline page must not reference remote assets"
+          print(f"Validated {len(ids)} offline starter lessons across {len(pack['languages'])} languages")
+          PY
       - name: Assemble installable debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verify APK
@@ -58,14 +80,13 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Publish APK download
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feat/brand-download-resume-full-test'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: linguabloom-android-v1.0.0
           name: LinguaBloom Academy Android 1.0.0
           body: |
-            LinguaBloom Academy Android wrapper, built and verified by GitHub Actions.
-            Configure the URL of your running LinguaBloom Academy backend on first launch.
+            LinguaBloom Academy Android server-connected wrapper. Configure the URL of your running backend on first launch. This release does not include the offline course pack or a bundled local AI model.
           files: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
           overwrite_files: true
           make_latest: false

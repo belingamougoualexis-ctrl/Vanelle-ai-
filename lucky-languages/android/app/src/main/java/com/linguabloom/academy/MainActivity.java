@@ -34,9 +34,9 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        String saved = prefs.getString(SERVER_KEY, "");
-        if (saved.isEmpty()) showServerSetup();
-        else openServer(saved);
+        // Start in the local learning space. The offline course module does not
+        // require a configured server or an Internet connection.
+        openOffline();
     }
 
     private int dp(float value) {
@@ -89,6 +89,15 @@ public final class MainActivity extends Activity {
         connect.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(89, 65, 183)));
         panel.addView(connect, new LinearLayout.LayoutParams(-1, dp(52)));
 
+        Button offline = new Button(this);
+        offline.setText("APPRENDRE HORS LIGNE");
+        offline.setTextColor(Color.rgb(25, 53, 80));
+        offline.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(226, 239, 245)));
+        LinearLayout.LayoutParams offlineParams = new LinearLayout.LayoutParams(-1, dp(52));
+        offlineParams.setMargins(0, dp(10), 0, 0);
+        panel.addView(offline, offlineParams);
+        offline.setOnClickListener(v -> openOffline());
+
         TextView note = new TextView(this);
         note.setText("Cette version Android nécessite un serveur accessible. Elle ne prétend pas embarquer le modèle IA ni la base de données dans le téléphone.");
         note.setTextColor(Color.rgb(110, 105, 130));
@@ -107,6 +116,21 @@ public final class MainActivity extends Activity {
             }
         });
         setContentView(panel);
+    }
+
+
+    private void openOffline() {
+        webView = new WebView(this);
+        webView.setBackgroundColor(Color.WHITE);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(false);
+        settings.setMediaPlaybackRequiresUserGesture(true);
+        webView.setWebViewClient(new WebViewClient());
+        setContentView(webView);
+        webView.loadUrl("file:///android_asset/offline/index.html");
     }
 
     private void openServer(String url) {
