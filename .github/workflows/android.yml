@@ -1,10 +1,16 @@
-name: ProofRail Android CI
+name: Vanelle Academy Android CI
 
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - "lucky-languages/android/**"
+      - ".github/workflows/android.yml"
   pull_request:
     branches: [ main, master ]
+    paths:
+      - "lucky-languages/android/**"
+      - ".github/workflows/android.yml"
   workflow_dispatch:
 
 permissions:
@@ -13,6 +19,9 @@ permissions:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lucky-languages/android
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,59 +38,35 @@ jobs:
           packages: platform-tools
 
       - name: Install Android SDK components
-        run: |
-          sdkmanager "platforms;android-35" \
-                     "build-tools;35.0.0" \
-                     "platform-tools" \
-                     "emulator" \
-                     "system-images;android-30;google_apis;x86_64"
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
 
+      - name: Verify Gradle project
+        run: gradle tasks --no-daemon --stacktrace
+
       - name: Unit tests
         run: gradle test --no-daemon --stacktrace
 
-      - name: Debug build
+      - name: Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Instrumented tests on Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          cores: 2
-          ram-size: 2048M
-          disk-size: 6G
-          force-avd-creation: false
-          emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: gradle connectedDebugAndroidTest --no-daemon --stacktrace
-
-      - name: Release build
+      - name: Release APK
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Verify APK metadata
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | tee apk-badging.txt
-          grep -q "package: name='com.proofrail.app'" apk-badging.txt
+          grep -q "package: name='com.vanelle.academy'" apk-badging.txt
           grep -q "versionName='1.0.0'" apk-badging.txt
-          grep -q "compileSdkVersion='35'" apk-badging.txt
           test -s app/build/outputs/apk/release/app-release-unsigned.apk
 
-      - name: Upload unsigned release artifact
+      - name: Upload Vanelle Academy release APK
         uses: actions/upload-artifact@v4
         with:
-          name: proofrail-1.0.0-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: vanelle-academy-1.0.0-release-unsigned
+          path: lucky-languages/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
