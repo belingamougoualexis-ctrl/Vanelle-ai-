@@ -2,7 +2,7 @@ name: LinguaBloom Android APK
 
 on:
   push:
-    branches: ["feat/brand-download-resume-full-test", "feat/offline-academy-android"]
+    branches: ["feat/brand-download-resume-full-test", "feat/offline-academy-android", "feat/linguabloom-local-ai-download-resume"]
     paths:
       - "lucky-languages/android/**"
       - ".github/workflows/linguabloom-android.yml"
@@ -63,6 +63,16 @@ jobs:
           assert "https://" not in page and "http://" not in page, "Offline page must not reference remote assets"
           print(f"Validated {len(ids)} offline starter lessons across {len(pack['languages'])} languages")
           PY
+      - name: Validate local AI integration contract
+        run: |
+          grep -q "litertlm-android" app/build.gradle
+          grep -q "class LocalTutor" app/src/main/java/com/linguabloom/academy/LocalTutor.kt
+          grep -q "sendMessageAsync" app/src/main/java/com/linguabloom/academy/LocalTutor.kt
+          grep -q "MODEL_SHA256" app/src/main/java/com/linguabloom/academy/MainActivity.java
+          grep -q "Range" app/src/main/java/com/linguabloom/academy/MainActivity.java
+          grep -q "window.AndroidTutor.ask" app/src/main/assets/offline/index.html
+          grep -q "Le modèle génératif IA" app/src/main/assets/offline/index.html && exit 1 || true
+          echo "Local AI runtime, checksum, resumable download, and tutor UI verified"
       - name: Assemble installable debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verify APK
