@@ -24,19 +24,37 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ProgressBar;
+import android.webkit.JavascriptInterface;
+import org.json.JSONObject;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final String PREFS = "linguabloom";
     private static final String SERVER_KEY = "server_url";
     private WebView webView;
     private SharedPreferences prefs;
+    private final ExecutorService modelExecutor = Executors.newSingleThreadExecutor();
+    private static final String MODEL_NAME = "Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
+    private static final String MODEL_URL = "https://huggingface.co/cuesetac/gemma-3-1b-it-litertlm/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
+    private static final long MODEL_BYTES = 584417280L;
+    private static final String MODEL_SHA256 = "1325ae366d31950f137c9c357b9fa89448b176d76998180c08ceaca78bba98be";
+    private ProgressBar modelProgress;
+    private TextView modelStatus;
+    private Button retryButton;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        // Start in the local learning space. The offline course module does not
-        // require a configured server or an Internet connection.
-        openOffline();
+        ensureLocalModel();
     }
 
     private int dp(float value) {
@@ -129,8 +147,176 @@ public final class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMediaPlaybackRequiresUserGesture(true);
         webView.setWebViewClient(new WebViewClient());
+        webView.addJavascriptInterface(new TutorBridge(), "AndroidTutor");
         setContentView(webView);
         webView.loadUrl("file:///android_asset/offline/index.html");
+    }
+
+    private File modelFile() {
+        File dir = new File(getFilesDir(), "models");
+        if (!dir.exists()) dir.mkdirs();
+        return new File(dir, MODEL_NAME);
+    }
+
+    private void ensureLocalModel() {
+        File model = modelFile();
+        if (model.isFile() && model.length() == MODEL_BYTES && MODEL_SHA256.equals(sha256(model))) {
+            openOffline();
+            return;
+        }
+        showModelSetup();
+        startModelDownload();
+    }
+
+    private void showModelSetup() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        panel.setPadding(dp(28), dp(24), dp(28), dp(24));
+        panel.setBackgroundColor(Color.rgb(243, 246, 250));
+        TextView title = new TextView(this);
+        title.setText("LinguaBloom Academy");
+        title.setTextColor(Color.rgb(16, 43, 70));
+        title.setTextSize(28);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Préparation du professeur IA hors ligne");
+        subtitle.setTextColor(Color.rgb(8, 126, 121));
+        subtitle.setTextSize(16);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
+        sp.setMargins(0, dp(10), 0, dp(20));
+        panel.addView(subtitle, sp);
+        modelStatus = new TextView(this);
+        modelStatus.setText("Vérification du modèle…");
+        modelStatus.setTextColor(Color.rgb(23, 43, 67));
+        modelStatus.setGravity(Gravity.CENTER);
+        panel.addView(modelStatus, new LinearLayout.LayoutParams(-1, -2));
+        modelProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        modelProgress.setMax(1000);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, dp(12));
+        bp.setMargins(0, dp(18), 0, dp(12));
+        panel.addView(modelProgress, bp);
+        TextView detail = new TextView(this);
+        detail.setText("Téléchargement unique : environ 584 Mo. En cas de coupure, les données déjà reçues sont conservées et la reprise continue au prochain essai. Le modèle répond ensuite sans envoyer tes questions sur Internet.");
+        detail.setTextColor(Color.rgb(96, 116, 136));
+        detail.setTextSize(13);
+        detail.setGravity(Gravity.CENTER);
+        panel.addView(detail, new LinearLayout.LayoutParams(-1, -2));
+        retryButton = new Button(this);
+        retryButton.setText("Reprendre le téléchargement");
+        retryButton.setVisibility(View.GONE);
+        panel.addView(retryButton, new LinearLayout.LayoutParams(-1, dp(50)));
+        retryButton.setOnClickListener(v -> startModelDownload());
+        setContentView(panel);
+    }
+
+    private void startModelDownload() {
+        if (modelStatus == null) showModelSetup();
+        retryButton.setEnabled(false);
+        retryButton.setVisibility(View.GONE);
+        modelExecutor.execute(() -> {
+            File target = modelFile();
+            File partial = new File(target.getAbsolutePath() + ".part");
+            try {
+                runOnUiThread(() -> modelStatus.setText("Connexion au dépôt du modèle…"));
+                long existing = partial.isFile() ? partial.length() : 0L;
+                HttpURLConnection connection = (HttpURLConnection) new URL(MODEL_URL).openConnection();
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(30000);
+                connection.setInstanceFollowRedirects(true);
+                connection.setRequestProperty("User-Agent", "LinguaBloomAcademy/1.1");
+                if (existing > 0) connection.setRequestProperty("Range", "bytes=" + existing + "-");
+                int code = connection.getResponseCode();
+                boolean append = code == HttpURLConnection.HTTP_PARTIAL && existing > 0;
+                if (code != HttpURLConnection.HTTP_OK && !append) {
+                    if (code == HttpURLConnection.HTTP_PARTIAL) throw new java.io.IOException("Réponse de reprise inattendue.");
+                    throw new java.io.IOException("Téléchargement impossible (HTTP " + code + ").");
+                }
+                if (!append) existing = 0L;
+                final long offset = existing;
+                long total = MODEL_BYTES;
+                runOnUiThread(() -> modelStatus.setText("Téléchargement du modèle IA…"));
+                try (InputStream in = connection.getInputStream();
+                     FileOutputStream out = new FileOutputStream(partial, append)) {
+                    byte[] buffer = new byte[64 * 1024];
+                    long received = offset;
+                    int n;
+                    while ((n = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, n);
+                        received += n;
+                        final long current = received;
+                        runOnUiThread(() -> {
+                            if (modelProgress != null) modelProgress.setProgress((int)Math.min(1000L, current * 1000L / total));
+                            if (modelStatus != null) modelStatus.setText("Modèle IA : " + String.format(java.util.Locale.FRANCE, "%.1f", current / 1048576.0) + " / 557 Mo");
+                        });
+                    }
+                    out.getFD().sync();
+                } finally {
+                    connection.disconnect();
+                }
+                if (partial.length() != MODEL_BYTES) throw new java.io.IOException("Téléchargement incomplet : " + partial.length() + " octets reçus. Appuie sur reprendre.");
+                if (!MODEL_SHA256.equals(sha256(partial))) {
+                    partial.delete();
+                    throw new java.io.IOException("Vérification de sécurité échouée. Le fichier incomplet a été supprimé ; relance le téléchargement.");
+                }
+                if (target.exists()) target.delete();
+                if (!partial.renameTo(target)) throw new java.io.IOException("Impossible de finaliser le modèle téléchargé.");
+                runOnUiThread(() -> {
+                    modelStatus.setText("Modèle vérifié. Ouverture de l’académie…");
+                    modelProgress.setProgress(1000);
+                    openOffline();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    modelStatus.setText("Téléchargement interrompu. " + (e.getMessage() == null ? "Vérifie la connexion et réessaie." : e.getMessage()) + "\nLes données partielles sont conservées.");
+                    retryButton.setText("Reprendre le téléchargement");
+                    retryButton.setEnabled(true);
+                    retryButton.setVisibility(View.VISIBLE);
+                });
+            }
+        });
+    }
+
+    private String sha256(File file) {
+        try (InputStream in = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buffer)) != -1) digest.update(buffer, 0, n);
+            StringBuilder out = new StringBuilder();
+            for (byte b : digest.digest()) out.append(String.format(java.util.Locale.ROOT, "%02x", b));
+            return out.toString();
+        } catch (Exception e) { return ""; }
+    }
+
+    private final class TutorBridge {
+        @JavascriptInterface public void ask(String prompt) {
+            final String question = prompt == null ? "" : prompt.trim();
+            modelExecutor.execute(() -> {
+                try {
+                    LocalTutor tutor = new LocalTutor(MainActivity.this);
+                    tutor.initialize();
+                    final StringBuilder answer = new StringBuilder();
+                    tutor.ask(question, chunk -> answer.append(chunk));
+                    runOnUiThread(() -> {
+                        if (webView != null) webView.evaluateJavascript("window.onLocalTutorResponse && window.onLocalTutorResponse(" + JSONObject.quote(answer.toString()) + ")", null);
+                        tutor.close();
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> {
+                        if (webView != null) webView.evaluateJavascript("window.onLocalTutorResponse && window.onLocalTutorResponse(" + JSONObject.quote("Le professeur IA n’a pas pu démarrer sur cet appareil : " + (e.getMessage() == null ? "mémoire ou modèle incompatible." : e.getMessage())) + ")", null);
+                    });
+                }
+            });
+        }
+    }
+
+    @Override protected void onDestroy() {
+        modelExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private void openServer(String url) {
