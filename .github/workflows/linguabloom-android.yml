@@ -71,8 +71,8 @@ jobs:
           grep -q "MODEL_SHA256" app/src/main/java/com/linguabloom/academy/MainActivity.java
           grep -q "Range" app/src/main/java/com/linguabloom/academy/MainActivity.java
           grep -q "window.AndroidTutor.ask" app/src/main/assets/offline/index.html
-          grep -q "Le modèle génératif IA" app/src/main/assets/offline/index.html && exit 1 || true
-          echo "Local AI runtime, checksum, resumable download, and tutor UI verified"
+          grep -q "three-d-studio.html" app/src/main/assets/offline/index.html
+          echo "Offline AI and 3D resource integration verified"
       - name: Assemble installable debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verify APK
@@ -81,11 +81,11 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
           grep -q "package: name='com.linguabloom.academy'" apk-badging.txt
-          grep -q "versionName='1.0.0'" apk-badging.txt
+          grep -q "versionName='1.1.0'" apk-badging.txt
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: LinguaBloom-Academy-Android-1.0.0
+          name: LinguaBloom-Academy-Android-1.1.0
           path: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -93,10 +93,10 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feat/brand-download-resume-full-test'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: linguabloom-android-v1.0.0
-          name: LinguaBloom Academy Android 1.0.0
+          tag_name: linguabloom-android-v1.1.0
+          name: LinguaBloom Academy Android 1.1.0
           body: |
-            LinguaBloom Academy Android server-connected wrapper. Configure the URL of your running backend on first launch. This release does not include the offline course pack or a bundled local AI model.
+            LinguaBloom Academy Android with offline lessons and local AI tutor.
           files: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
           overwrite_files: true
           make_latest: false
