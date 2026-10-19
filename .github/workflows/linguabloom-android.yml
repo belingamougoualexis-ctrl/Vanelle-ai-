@@ -71,7 +71,7 @@ jobs:
           grep -q "MODEL_SHA256" app/src/main/java/com/linguabloom/academy/MainActivity.java
           grep -q "Range" app/src/main/java/com/linguabloom/academy/MainActivity.java
           grep -q "window.AndroidTutor.ask" app/src/main/assets/offline/index.html
-          grep -q "three-d-studio.html" app/src/main/assets/offline/index.html
+          grep -q "linguabloom-3d-globe.svg" app/src/main/assets/offline/index.html
           echo "Offline AI and 3D resource integration verified"
       - name: Assemble installable debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
