@@ -34,9 +34,9 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        String saved = prefs.getString(SERVER_KEY, "");
-        if (saved.isEmpty()) showServerSetup();
-        else openServer(saved);
+        // Start in the local learning space. The offline course module does not
+        // require a configured server or an Internet connection.
+        openOffline();
     }
 
     private int dp(float value) {
