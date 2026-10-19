@@ -69,19 +69,49 @@ jobs:
           disable-animations: true
           script: gradle connectedDebugAndroidTest --no-daemon --stacktrace
 
-      - name: Release build
+      - name: Validate release signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+
+      - name: Prepare release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/proofrail-release.jks"
+          test -s "$RUNNER_TEMP/proofrail-release.jks"
+
+      - name: Release build (signed)
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/proofrail-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Verify APK metadata
+      - name: Verify signed APK
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | tee apk-badging.txt
+          APK="app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
           grep -q "package: name='com.proofrail.app'" apk-badging.txt
           grep -q "versionName='1.0.0'" apk-badging.txt
           grep -q "compileSdkVersion='35'" apk-badging.txt
-          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          sha256sum "$APK" | tee apk-sha256.txt
 
-      - name: Upload unsigned release artifact
+      - name: Upload signed release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: proofrail-1.0.0-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: proofrail-1.0.0-release-signed
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            apk-badging.txt
+            apk-sha256.txt
