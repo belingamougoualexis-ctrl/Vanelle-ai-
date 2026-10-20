@@ -1,6 +1,6 @@
-# LinguaBloom Academy
+# Vanelle Academy
 
-A standalone French-first language-school web application added under `lucky-languages/`. The existing Vanelle Android app is not replaced or rewritten.
+Vanelle Academy is the French-first language-learning application in `lucky-languages/`, with an Android wrapper and web edition.
 
 ## Start locally
 
@@ -53,7 +53,7 @@ If the administrator account already exists, changing these variables does not o
 
 ## Learning paths
 
-- LinguaBloom Academy branding and a polished violet, mint, coral and warm-gold design.
+- Vanelle Academy branding and a polished violet, mint, coral and warm-gold design.
 - CEFR A1–C2 learning paths across ten supported languages, with 250 lessons per language for English/French/Spanish/German/Portuguese and 300 for Mandarin/Japanese/Korean/Arabic/Russian.
 - Full A1–C2 practice paths for German, Portuguese, Mandarin Chinese, Japanese, Korean, Arabic and Russian.
 - Interactive 3D teacher gallery with six selectable rigged avatars, camera controls, rotation toggle and optional GLB import (up to 500 MB). Avatars and the viewer are loaded from external CDNs and require Internet.
