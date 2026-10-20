@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.linguabloom.academy"
+    namespace = "com.vanelleacademy.academy"
     compileSdk = 35
 
     defaultConfig {
