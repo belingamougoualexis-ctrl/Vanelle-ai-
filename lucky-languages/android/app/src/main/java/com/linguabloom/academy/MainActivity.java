@@ -338,7 +338,7 @@ public final class MainActivity extends Activity {
                     LocalTutor tutor = new LocalTutor(MainActivity.this);
                     tutor.initialize();
                     final StringBuilder answer = new StringBuilder();
-                    tutor.ask(question, chunk -> answer.append(chunk));
+                    tutor.ask(question, chunk -> { answer.append(chunk); });
                     runOnUiThread(() -> {
                         if (webView != null) webView.evaluateJavascript("window.onLocalTutorResponse && window.onLocalTutorResponse(" + JSONObject.quote(answer.toString()) + ")", null);
                         tutor.close();
