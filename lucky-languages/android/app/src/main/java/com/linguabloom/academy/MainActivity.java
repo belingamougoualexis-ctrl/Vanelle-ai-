@@ -262,8 +262,10 @@ public final class MainActivity extends Activity {
                     connection.disconnect();
                     if (selectedModel != null && MODEL_3N_NAME.equals(selectedModel.name)) {
                         selectedModel = model1B();
-                        runOnUiThread(() -> modelStatus.setText("Accès au modèle Gemma 3n restreint par la licence. Passage au modèle léger Gemma 3 1B…"));
-                        startModelDownload();
+                        runOnUiThread(() -> {
+                            modelStatus.setText("Accès au modèle Gemma 3n restreint par la licence. Passage au modèle léger Gemma 3 1B…");
+                            startModelDownload();
+                        });
                         return;
                     }
                 }
