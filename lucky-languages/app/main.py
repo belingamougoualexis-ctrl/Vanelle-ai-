@@ -494,7 +494,7 @@ def home(): return FileResponse(BASE/"static"/"index.html")
 def service_worker():
  return FileResponse(BASE/"static"/"sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache"})
 @app.get("/health")
-def health(): return {"status":"ok","service":"vanelleacademy-academy-api"}
+def health(): return {"status":"ok","service":"vanelle-academy-api"}
 @app.get("/api/languages")
 def languages(): return {"items":LANGUAGES,"note":"Catalogue initial; les langues listées ne garantissent pas un cours complet vérifié."}
 @app.post("/api/auth/register",status_code=201)
