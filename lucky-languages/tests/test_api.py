@@ -251,13 +251,13 @@ def test_resource_download_supports_byte_ranges_for_resume(client):
  assert client.get(f"/api/resources/{resource_id}/download", headers=auth(teacher["access_token"])).content == payload
 
 
-def test_pwa_root_worker_and_original_brand_icon_are_served(client):
+def test_pwa_root_worker_and_vanelle_brand_icon_are_served(client):
  worker = client.get("/sw.js")
  assert worker.status_code == 200
  assert "serviceWorker" not in worker.text
  assert "fetch" in worker.text
  icon = client.get("/static/icon.svg")
  assert icon.status_code == 200
- assert "LinguaBloom Academy" in icon.text
- assert client.get("/health").json()["service"] == "linguabloom-academy-api"
+ assert "Vanelle Academy" in icon.text
+ assert client.get("/health").json()["service"] == "vanelle-academy-api"
 
