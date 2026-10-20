@@ -252,14 +252,6 @@ public final class MainActivity extends Activity {
                 boolean append = code == HttpURLConnection.HTTP_PARTIAL && existing > 0;
                 if (code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN) {
                     connection.disconnect();
-                    if (selectedModel != null && MODEL_3N_NAME.equals(selectedModel.name)) {
-                        selectedModel = model1B();
-                        runOnUiThread(() -> {
-                            modelStatus.setText("Accès au modèle Gemma 3n restreint par la licence. Passage au modèle léger Gemma 3 1B…");
-                            startModelDownload();
-                        });
-                        return;
-                    }
                 }
                 if (code != HttpURLConnection.HTTP_OK && !append) {
                     if (code == HttpURLConnection.HTTP_PARTIAL) throw new java.io.IOException("Réponse de reprise inattendue.");
