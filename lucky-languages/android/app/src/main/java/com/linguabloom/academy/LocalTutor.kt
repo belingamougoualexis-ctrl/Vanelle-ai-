@@ -1,4 +1,4 @@
-package com.linguabloom.academy
+package com.vanelleacademy.academy
 
 import android.content.Context
 import com.google.ai.edge.litertlm.Backend
@@ -14,7 +14,16 @@ import kotlinx.coroutines.runBlocking
  * The model file is downloaded and checksum-verified by MainActivity.
  */
 class LocalTutor(context: Context) : AutoCloseable {
-    private val modelPath = context.filesDir.resolve("models/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm").absolutePath
+    private val modelPath = run {
+        val modelsDir = context.filesDir.resolve("models")
+        val e2b = modelsDir.resolve("gemma-3n-E2B-it-int4.litertlm")
+        val oneB = modelsDir.resolve("Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm")
+        when {
+            e2b.isFile && e2b.length() > 3_000_000_000L -> e2b.absolutePath
+            oneB.isFile && oneB.length() > 500_000_000L -> oneB.absolutePath
+            else -> throw IllegalStateException("Aucun modèle IA complet et vérifié n’a été trouvé.")
+        }
+    }
     private val engine = Engine(EngineConfig(modelPath = modelPath, backend = Backend.CPU()))
     private var conversation: com.google.ai.edge.litertlm.Conversation? = null
 
