@@ -47,11 +47,6 @@ public final class MainActivity extends Activity {
     private static final String MODEL_1B_URL = "https://huggingface.co/cuesetac/gemma-3-1b-it-litertlm/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
     private static final long MODEL_1B_BYTES = 584417280L;
     private static final String MODEL_1B_SHA256 = "1325ae366d31950f137c9c357b9fa89448b176d76998180c08ceaca78bba98be";
-    private static final String MODEL_3N_NAME = "gemma-3n-E2B-it-int4.litertlm";
-    private static final String MODEL_3N_URL = "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm";
-    private static final long MODEL_3N_BYTES = 3655827456L;
-    private static final String MODEL_3N_SHA256 = "2ed7bc3a0026c93d5b8a4544b352d9d00cd66ff0bac3ef6a20ac3d2cba4010d6";
-    private static final long MIN_RAM_FOR_3N = 8L * 1024L * 1024L * 1024L;
     private static final class ModelSpec {
         final String name, url, sha256, label;
         final long bytes;
@@ -61,7 +56,6 @@ public final class MainActivity extends Activity {
     }
     private ModelSpec selectedModel;
     private ModelSpec model1B() { return new ModelSpec(MODEL_1B_NAME, MODEL_1B_URL, MODEL_1B_BYTES, MODEL_1B_SHA256, "Gemma 3 1B"); }
-    private ModelSpec model3n() { return new ModelSpec(MODEL_3N_NAME, MODEL_3N_URL, MODEL_3N_BYTES, MODEL_3N_SHA256, "Gemma 3n E2B"); }
     private ProgressBar modelProgress;
     private TextView modelStatus;
     private Button retryButton;
@@ -70,6 +64,9 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         selectedModel = chooseModelForDevice();
+        // Nettoie l’ancien modèle E2B de plusieurs Go s’il a été installé par une version précédente.
+        File oldLargeModel = new File(new File(getFilesDir(), "models"), "gemma-3n-E2B-it-int4.litertlm");
+        if (oldLargeModel.exists()) oldLargeModel.delete();
         ensureLocalModel();
     }
 
@@ -169,12 +166,8 @@ public final class MainActivity extends Activity {
     }
 
     private ModelSpec chooseModelForDevice() {
-        android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
-        if (am != null) am.getMemoryInfo(memory);
-        // Gemma 3n E2B INT4 is about 3.66 GB and is listed for devices with at least 8 GB RAM.
-        // Keep low-memory devices usable with the 1B model instead of crashing during inference.
-        return memory.totalMem >= MIN_RAM_FOR_3N ? model3n() : model1B();
+        // Vanelle garde un seul modèle local léger : Gemma 3 1B quantifié, environ 584 Mo.
+        return model1B();
     }
 
     private File modelFile() {
@@ -225,9 +218,8 @@ public final class MainActivity extends Activity {
         bp.setMargins(0, dp(18), 0, dp(12));
         panel.addView(modelProgress, bp);
         TextView detail = new TextView(this);
-        String sizeText = selectedModel == null ? "du modèle" :
-                (selectedModel == null ? "" : (selectedModel.bytes > 1000000000L ? "environ 3,66 Go" : "environ 584 Mo"));
-        detail.setText("Téléchargement de " + selectedModel.label + " (" + sizeText + "). En cas de coupure, les données déjà reçues sont conservées. Le modèle répond ensuite sans envoyer tes questions sur Internet. Gemma 3n E2B demande au moins 8 Go de RAM et son dépôt officiel peut exiger l’acceptation de la licence Gemma.");
+        String sizeText = "environ 584 Mo";
+        detail.setText("Téléchargement de " + selectedModel.label + " (" + sizeText + "). En cas de coupure, les données déjà reçues sont conservées. Après installation, le professeur IA répond hors ligne et ne transmet pas tes questions sur Internet.");
         detail.setTextColor(Color.rgb(96, 116, 136));
         detail.setTextSize(13);
         detail.setGravity(Gravity.CENTER);
