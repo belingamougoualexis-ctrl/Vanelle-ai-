@@ -1,4 +1,4 @@
-package com.linguabloom.academy;
+package com.vanelleacademy.academy;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -38,7 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
-    private static final String PREFS = "linguabloom";
+    private static final String PREFS = "vanelleacademy";
     private static final String SERVER_KEY = "server_url";
     private WebView webView;
     private SharedPreferences prefs;
