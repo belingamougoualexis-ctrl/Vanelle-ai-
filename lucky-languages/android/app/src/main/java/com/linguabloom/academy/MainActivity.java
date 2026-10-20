@@ -43,10 +43,25 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private SharedPreferences prefs;
     private final ExecutorService modelExecutor = Executors.newSingleThreadExecutor();
-    private static final String MODEL_NAME = "Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
-    private static final String MODEL_URL = "https://huggingface.co/cuesetac/gemma-3-1b-it-litertlm/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
-    private static final long MODEL_BYTES = 584417280L;
-    private static final String MODEL_SHA256 = "1325ae366d31950f137c9c357b9fa89448b176d76998180c08ceaca78bba98be";
+    private static final String MODEL_1B_NAME = "Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
+    private static final String MODEL_1B_URL = "https://huggingface.co/cuesetac/gemma-3-1b-it-litertlm/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm";
+    private static final long MODEL_1B_BYTES = 584417280L;
+    private static final String MODEL_1B_SHA256 = "1325ae366d31950f137c9c357b9fa89448b176d76998180c08ceaca78bba98be";
+    private static final String MODEL_3N_NAME = "gemma-3n-E2B-it-int4.litertlm";
+    private static final String MODEL_3N_URL = "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm";
+    private static final long MODEL_3N_BYTES = 3655827456L;
+    private static final String MODEL_3N_SHA256 = "2ed7bc3a0026c93d5b8a4544b352d9d00cd66ff0bac3ef6a20ac3d2cba4010d6";
+    private static final long MIN_RAM_FOR_3N = 8L * 1024L * 1024L * 1024L;
+    private static final class ModelSpec {
+        final String name, url, sha256, label;
+        final long bytes;
+        ModelSpec(String name, String url, long bytes, String sha256, String label) {
+            this.name = name; this.url = url; this.bytes = bytes; this.sha256 = sha256; this.label = label;
+        }
+    }
+    private ModelSpec selectedModel;
+    private ModelSpec model1B() { return new ModelSpec(MODEL_1B_NAME, MODEL_1B_URL, MODEL_1B_BYTES, MODEL_1B_SHA256, "Gemma 3 1B"); }
+    private ModelSpec model3n() { return new ModelSpec(MODEL_3N_NAME, MODEL_3N_URL, MODEL_3N_BYTES, MODEL_3N_SHA256, "Gemma 3n E2B"); }
     private ProgressBar modelProgress;
     private TextView modelStatus;
     private Button retryButton;
@@ -54,6 +69,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        selectedModel = chooseModelForDevice();
         ensureLocalModel();
     }
 
@@ -152,15 +168,24 @@ public final class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/offline/index.html");
     }
 
+    private ModelSpec chooseModelForDevice() {
+        android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
+        if (am != null) am.getMemoryInfo(memory);
+        // Gemma 3n E2B INT4 is about 3.66 GB and is listed for devices with at least 8 GB RAM.
+        // Keep low-memory devices usable with the 1B model instead of crashing during inference.
+        return memory.totalMem >= MIN_RAM_FOR_3N ? model3n() : model1B();
+    }
+
     private File modelFile() {
         File dir = new File(getFilesDir(), "models");
         if (!dir.exists()) dir.mkdirs();
-        return new File(dir, MODEL_NAME);
+        return new File(dir, selectedModel.name);
     }
 
     private void ensureLocalModel() {
         File model = modelFile();
-        if (model.isFile() && model.length() == MODEL_BYTES && MODEL_SHA256.equals(sha256(model))) {
+        if (model.isFile() && model.length() == selectedModel.bytes && selectedModel.sha256.equals(sha256(model))) {
             openOffline();
             return;
         }
@@ -182,7 +207,7 @@ public final class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         panel.addView(title, new LinearLayout.LayoutParams(-1, -2));
         TextView subtitle = new TextView(this);
-        subtitle.setText("Préparation du professeur IA hors ligne");
+        subtitle.setText("Préparation du professeur IA hors ligne (" + selectedModel.label + ")");
         subtitle.setTextColor(Color.rgb(8, 126, 121));
         subtitle.setTextSize(16);
         subtitle.setGravity(Gravity.CENTER);
@@ -200,7 +225,9 @@ public final class MainActivity extends Activity {
         bp.setMargins(0, dp(18), 0, dp(12));
         panel.addView(modelProgress, bp);
         TextView detail = new TextView(this);
-        detail.setText("Téléchargement unique : environ 584 Mo. En cas de coupure, les données déjà reçues sont conservées et la reprise continue au prochain essai. Le modèle répond ensuite sans envoyer tes questions sur Internet.");
+        String sizeText = selectedModel == null ? "du modèle" :
+                (selectedModel == null ? "" : (selectedModel.bytes > 1000000000L ? "environ 3,66 Go" : "environ 584 Mo"));
+        detail.setText("Téléchargement de " + selectedModel.label + " (" + sizeText + "). En cas de coupure, les données déjà reçues sont conservées. Le modèle répond ensuite sans envoyer tes questions sur Internet. Gemma 3n E2B demande au moins 8 Go de RAM et son dépôt officiel peut exiger l’acceptation de la licence Gemma.");
         detail.setTextColor(Color.rgb(96, 116, 136));
         detail.setTextSize(13);
         detail.setGravity(Gravity.CENTER);
@@ -223,7 +250,7 @@ public final class MainActivity extends Activity {
             try {
                 runOnUiThread(() -> modelStatus.setText("Connexion au dépôt du modèle…"));
                 long existing = partial.isFile() ? partial.length() : 0L;
-                HttpURLConnection connection = (HttpURLConnection) new URL(MODEL_URL).openConnection();
+                HttpURLConnection connection = (HttpURLConnection) new URL(selectedModel.url).openConnection();
                 connection.setConnectTimeout(20000);
                 connection.setReadTimeout(30000);
                 connection.setInstanceFollowRedirects(true);
@@ -231,13 +258,22 @@ public final class MainActivity extends Activity {
                 if (existing > 0) connection.setRequestProperty("Range", "bytes=" + existing + "-");
                 int code = connection.getResponseCode();
                 boolean append = code == HttpURLConnection.HTTP_PARTIAL && existing > 0;
+                if (code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN) {
+                    connection.disconnect();
+                    if (selectedModel != null && MODEL_3N_NAME.equals(selectedModel.name)) {
+                        selectedModel = model1B();
+                        runOnUiThread(() -> modelStatus.setText("Accès au modèle Gemma 3n restreint par la licence. Passage au modèle léger Gemma 3 1B…"));
+                        startModelDownload();
+                        return;
+                    }
+                }
                 if (code != HttpURLConnection.HTTP_OK && !append) {
                     if (code == HttpURLConnection.HTTP_PARTIAL) throw new java.io.IOException("Réponse de reprise inattendue.");
                     throw new java.io.IOException("Téléchargement impossible (HTTP " + code + ").");
                 }
                 if (!append) existing = 0L;
                 final long offset = existing;
-                long total = MODEL_BYTES;
+                long total = selectedModel.bytes;
                 runOnUiThread(() -> modelStatus.setText("Téléchargement du modèle IA…"));
                 try (InputStream in = connection.getInputStream();
                      FileOutputStream out = new FileOutputStream(partial, append)) {
@@ -250,15 +286,15 @@ public final class MainActivity extends Activity {
                         final long current = received;
                         runOnUiThread(() -> {
                             if (modelProgress != null) modelProgress.setProgress((int)Math.min(1000L, current * 1000L / total));
-                            if (modelStatus != null) modelStatus.setText("Modèle IA : " + String.format(java.util.Locale.FRANCE, "%.1f", current / 1048576.0) + " / 557 Mo");
+                            if (modelStatus != null) modelStatus.setText("Modèle IA : " + String.format(java.util.Locale.FRANCE, "%.1f", current / 1048576.0) + " Mo reçus");
                         });
                     }
                     out.getFD().sync();
                 } finally {
                     connection.disconnect();
                 }
-                if (partial.length() != MODEL_BYTES) throw new java.io.IOException("Téléchargement incomplet : " + partial.length() + " octets reçus. Appuie sur reprendre.");
-                if (!MODEL_SHA256.equals(sha256(partial))) {
+                if (partial.length() != selectedModel.bytes) throw new java.io.IOException("Téléchargement incomplet : " + partial.length() + " octets reçus. Appuie sur reprendre.");
+                if (!selectedModel.sha256.equals(sha256(partial))) {
                     partial.delete();
                     throw new java.io.IOException("Vérification de sécurité échouée. Le fichier incomplet a été supprimé ; relance le téléchargement.");
                 }
