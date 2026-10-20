@@ -16,13 +16,9 @@ import kotlinx.coroutines.runBlocking
 class LocalTutor(context: Context) : AutoCloseable {
     private val modelPath = run {
         val modelsDir = context.filesDir.resolve("models")
-        val e2b = modelsDir.resolve("gemma-3n-E2B-it-int4.litertlm")
         val oneB = modelsDir.resolve("Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm")
-        when {
-            e2b.isFile && e2b.length() > 3_000_000_000L -> e2b.absolutePath
-            oneB.isFile && oneB.length() > 500_000_000L -> oneB.absolutePath
-            else -> throw IllegalStateException("Aucun modèle IA complet et vérifié n’a été trouvé.")
-        }
+        if (oneB.isFile && oneB.length() > 500_000_000L) oneB.absolutePath
+        else throw IllegalStateException("Le modèle léger Gemma 3 1B est absent ou incomplet.")
     }
     private val engine = Engine(EngineConfig(modelPath = modelPath, backend = Backend.CPU()))
     private var conversation: com.google.ai.edge.litertlm.Conversation? = null
