@@ -49,10 +49,10 @@ jobs:
             sleep 2
           done
           curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
-      - name: Download real model weights
-        run: docker exec lucky-ollama ollama pull qwen2.5:1.5b
-      - name: Generate exercises through the application API using the actual model
+      - name: Download Gemma 3n E2B real model weights
+        run: docker exec lucky-ollama ollama pull gemma3n:e2b
+      - name: Generate exercises through the application API using Gemma 3n E2B
         env:
           LUCKY_OLLAMA_URL: http://127.0.0.1:11434/api/generate
-          LUCKY_PEDAGOGY_MODEL: qwen2.5:1.5b
+          LUCKY_PEDAGOGY_MODEL: gemma3n:e2b
         run: pytest -q tests/test_ai_integration.py -m ai_integration
