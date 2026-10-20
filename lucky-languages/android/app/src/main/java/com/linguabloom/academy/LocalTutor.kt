@@ -37,7 +37,7 @@ class LocalTutor(context: Context) : AutoCloseable {
         initialize()
         val active = conversation ?: error("Le professeur IA n'est pas initialisé.")
         runBlocking {
-            active.sendMessageAsync(prompt).collect { chunk -> onChunk(chunk) }
+            active.sendMessageAsync(prompt).collect { chunk -> onChunk(chunk.toString()) }
         }
     }
 
