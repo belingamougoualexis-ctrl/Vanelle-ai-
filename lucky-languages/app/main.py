@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 BASE = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("LUCKY_DB_PATH", str(BASE / "lucky.db")))
-app = FastAPI(title="LinguaBloom Academy API", version="0.1.0")
+app = FastAPI(title="Vanelle Academy API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 LANGUAGES = [
  {"code":"en","name":"English","status":"catalogue"},
@@ -494,7 +494,7 @@ def home(): return FileResponse(BASE/"static"/"index.html")
 def service_worker():
  return FileResponse(BASE/"static"/"sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache"})
 @app.get("/health")
-def health(): return {"status":"ok","service":"linguabloom-academy-api"}
+def health(): return {"status":"ok","service":"vanelleacademy-academy-api"}
 @app.get("/api/languages")
 def languages(): return {"items":LANGUAGES,"note":"Catalogue initial; les langues listées ne garantissent pas un cours complet vérifié."}
 @app.post("/api/auth/register",status_code=201)
@@ -634,7 +634,7 @@ def init_academy_tables():
     for i,(lt,body,exercise,answer) in enumerate(lessons,1):
      db.execute("INSERT INTO lessons(course_id,title,body,exercise,answer,position) VALUES(?,?,?,?,?,?)",(cid,lt,body,exercise,answer,i))
 
-  # LinguaBloom curated learning paths. Each lesson has an explicit answer and a
+  # Vanelle curated learning paths. Each lesson has an explicit answer and a
   # short explanation; levels describe progression, not official certification.
   advanced_tracks = [
    ("en","English · Elementary conversations","A2","Everyday conversations, past events and future plans.",[
@@ -1048,7 +1048,7 @@ def bulletin_pdf(student_id:Optional[int]=None,user=Depends(current_user)):
  average=sum(r["score"]*r["coefficient"] for r in rows)/total if total else None
  from io import BytesIO
  buff=BytesIO(); pdf=canvas.Canvas(buff,pagesize=A4); width,height=A4
- pdf.setTitle("Bulletin scolaire - Lucky Languages Academy")
+ pdf.setTitle("Bulletin scolaire - Vanelle Academy Academy")
  pdf.setFont("Helvetica-Bold",18); pdf.drawString(50,height-55,"LUCKY LANGUAGES ACADEMY")
  pdf.setFont("Helvetica",12); pdf.drawString(50,height-85,"Bulletin de résultats")
  pdf.drawString(50,height-110,"Élève : "+student["full_name"][:80])
