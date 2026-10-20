@@ -64,6 +64,13 @@ jobs:
           grep -q "versionName='1.0.0'" apk-badging.txt
           test -s app/build/outputs/apk/release/app-release-unsigned.apk
 
+      - name: Upload installable Android APK (debug-signed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanelle-academy-1.0.0-debug-installable
+          path: lucky-languages/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
       - name: Upload Vanelle Academy release APK
         uses: actions/upload-artifact@v4
         with:
