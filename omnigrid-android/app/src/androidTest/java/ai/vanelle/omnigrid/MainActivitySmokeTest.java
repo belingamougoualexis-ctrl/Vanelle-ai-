@@ -18,9 +18,22 @@ public class MainActivitySmokeTest {
         try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
             onView(withText("OMNIGRID AI")).check(matches(isDisplayed()));
             onView(withText("Moteur IA local")).check(matches(isDisplayed()));
-            onView(withText("Analyser hors ligne")).check(matches(isDisplayed()));
+            onView(withText("Outils locaux exécutables")).check(matches(isDisplayed()));
+            onView(withText("Exécuter l’outil local ou analyser avec l’IA")).check(matches(isDisplayed()));
             onView(withText("Télécharger / réinstaller le modèle local")).check(matches(isDisplayed()));
         }
+    }
+
+    @Test public void allowListedToolsActuallyExecuteOnDevice() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        String calculation = LocalToolbox.run(context, "calc: (12 + 3) * 4");
+        assertTrue("Arithmetic tool did not compute expected result: " + calculation, calculation.contains("60.0"));
+        String note = LocalToolbox.run(context, "note: test instrumenté Vanelle");
+        assertTrue("Local note was not saved", note.contains("test instrumenté Vanelle"));
+        String notes = LocalToolbox.run(context, "notes:list");
+        assertTrue("Saved note cannot be listed", notes.contains("test instrumenté Vanelle"));
+        assertTrue("Device info tool returned no Android version", LocalToolbox.run(context, "device:info").contains("Android"));
+        assertTrue("Clock tool returned no time", LocalToolbox.run(context, "time:now").length() > 20);
     }
 
     @Test public void localModelProducesRealTextWhenCiProvidesModel() throws Exception {
