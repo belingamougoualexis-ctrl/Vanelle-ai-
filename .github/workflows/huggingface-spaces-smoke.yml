@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/huggingface-spaces-smoke.yml"
       - "omnigrid-android/**"
+      - ".github/workflows/omnigrid-android.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,18 +41,18 @@ jobs:
               return urllib.request.urlopen(req, timeout=timeout)
 
           # The public OpenAPI schema proves the Space exposes a callable Gradio API.
-          with request(base + "/gradio_api/openapi.json") as response:
+          with request(base + "/gradio_api/openapi.json", timeout=120) as response:
               schema = json.loads(response.read().decode("utf-8"))
               assert isinstance(schema, dict) and schema, "Space returned an empty OpenAPI schema"
               print("PASS: public Space API schema reachable")
 
           # Exercise actual inference, not just the landing page.
           payload = json.dumps({"data": ["Hello, how are you?"]}).encode("utf-8")
-          with request(base + "/gradio_api/call/predict", payload) as response:
+          with request(base + "/gradio_api/call/predict", payload, timeout=120) as response:
               submitted = json.loads(response.read().decode("utf-8"))
           event_id = submitted.get("event_id")
           assert event_id, f"Space did not return an event_id: {submitted!r}"
-          with request(base + "/gradio_api/call/predict/" + event_id, timeout=90) as response:
+          with request(base + "/gradio_api/call/predict/" + event_id, timeout=180) as response:
               stream = response.read().decode("utf-8", errors="replace")
           assert "event: complete" in stream, f"Space inference did not complete: {stream[-1000:]}"
           assert "data:" in stream, f"Space returned no result data: {stream[-1000:]}"
