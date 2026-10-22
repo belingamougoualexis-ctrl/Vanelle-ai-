@@ -111,7 +111,7 @@ class Worker:
                       "entries": [{"name": p.name, "directory": p.is_dir(), "size": p.stat().st_size if p.is_file() else None}
                                   for p in sorted(path.iterdir(), key=lambda x: x.name.lower())[:200]]}
         elif action == "workspace.read":
-            path = _safe_path(str(payload.get("path", "")))
+            path = _safe_path(str(payload.get("path", "")), self.workspace)
             if not path.is_file(): raise AgentError("Fichier introuvable.")
             if path.stat().st_size > 1_000_000: raise AgentError("Fichier supérieur à 1 Mo refusé.")
             result = {"path": str(path.relative_to(self.workspace)), "text": path.read_text(encoding="utf-8")}
