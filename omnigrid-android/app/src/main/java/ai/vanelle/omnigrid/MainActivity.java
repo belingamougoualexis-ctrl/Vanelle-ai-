@@ -22,6 +22,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -33,7 +34,7 @@ public class MainActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final ArrayList<Task> tasks=new ArrayList<>();
     private LinearLayout root,feed;
-    private EditText prompt;
+    private EditText prompt,remoteEndpoint,remoteToken;
     private TextView status,modelStatus;
     private boolean receiverRegistered=false;
     private final Runnable pollDownload=new Runnable(){@Override public void run(){if(modelStatus!=null){modelStatus.setText(LocalModelManager.downloadStatus(MainActivity.this));handler.postDelayed(this,2500);}}};
@@ -48,7 +49,7 @@ public class MainActivity extends Activity {
             });
         }
     }};
-    private static final class Task { final String request; String state,result; Task(String r,String s){request=r;state=s;} }
+    private static final class Task { final String request; String state,result; boolean approved=false; Task(String r,String s){request=r;state=s;} }
     @Override public void onCreate(Bundle state){super.onCreate(state);buildHome();IntentFilter f=new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(downloadReceiver,f,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(downloadReceiver,f);receiverRegistered=true;handler.post(pollDownload);if(LocalModelManager.isPresent(this)){status.setText("VÉRIFICATION DU MODÈLE LOCAL…");executor.execute(()->{try{boolean valid=LocalModelManager.verifyIntegrity(MainActivity.this);runOnUiThread(()->{status.setText(valid?"IA LOCALE PRÊTE":"MODÈLE LOCAL INVALIDE");modelStatus.setText(valid?"Modèle vérifié — prêt hors ligne":"Le modèle a échoué à la vérification SHA-256.");});}catch(Exception e){runOnUiThread(()->{status.setText("VÉRIFICATION IMPOSSIBLE");modelStatus.setText(e.getMessage());});}});}}
     private GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(radius);d.setStroke(1,Color.rgb(39,62,88));return d;}
     private TextView text(String value,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setPadding(0,4,0,4);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
@@ -65,9 +66,9 @@ public class MainActivity extends Activity {
         modelCard.addView(text("Le premier téléchargement nécessite Internet. Ensuite, la génération de texte fonctionne hors ligne. Prévois au moins 1,5 Go de mémoire libre pour le modèle et le cache.",12,MUTED,false));
         modelStatus=text(LocalModelManager.downloadStatus(this),13,CYAN,true);modelCard.addView(modelStatus);gap(modelCard,8);
         modelCard.addView(button("Télécharger / réinstaller le modèle local",this::confirmDownload));modelCard.addView(button("Tester réellement l'IA locale",this::runLocalSelfTest));root.addView(modelCard);
-        gap(root,16);root.addView(text("Outils locaux exécutables",20,WHITE,true));LinearLayout tools=column();tools.setPadding(14,12,14,12);tools.setBackground(shape(PANEL,18));tools.addView(text("Ces commandes agissent réellement sur cet appareil, sans Internet ni modèle IA :",13,GREEN,true));tools.addView(text(LocalToolbox.help(),12,MUTED,false));root.addView(tools);gap(root,16);root.addView(text("Équipe d’agents IA",20,WHITE,true));LinearLayout agents=column();agents.setPadding(14,12,14,12);agents.setBackground(shape(PANEL,18));agents.addView(text(AgentOrchestrator.catalog(),12,MUTED,false));root.addView(agents);gap(root,16);root.addView(text("Nouvelle tâche",20,WHITE,true));prompt=field("Ex. calc: (12 + 3) * 4 ou note: idées du projet",true);root.addView(prompt);gap(root,8);root.addView(button("Exécuter l’outil local ou analyser avec l’IA",this::submitTask));gap(root,16);
+        gap(root,16);root.addView(text("Outils locaux exécutables",20,WHITE,true));LinearLayout tools=column();tools.setPadding(14,12,14,12);tools.setBackground(shape(PANEL,18));tools.addView(text("Ces commandes agissent réellement sur cet appareil, sans Internet ni modèle IA :",13,GREEN,true));tools.addView(text(LocalToolbox.help(),12,MUTED,false));root.addView(tools);gap(root,16);root.addView(text("Équipe d’agents IA",20,WHITE,true));LinearLayout agents=column();agents.setPadding(14,12,14,12);agents.setBackground(shape(PANEL,18));agents.addView(text(AgentOrchestrator.catalog(),12,MUTED,false));root.addView(agents);gap(root,16);root.addView(text("Connexion à un ordinateur",20,WHITE,true));LinearLayout remote=column();remote.setPadding(14,12,14,12);remote.setBackground(shape(PANEL,18));remote.addView(text("Worker Python sur Windows / Linux / macOS. Exige HTTPS avec certificat reconnu et un jeton d'au moins 32 caractères. Le jeton reste en mémoire de cette session.",12,MUTED,false));remoteEndpoint=field("https://ordinateur.example:8765/v1/tasks",false);remote.addView(remoteEndpoint);gap(remote,6);remoteToken=field("Jeton VANELLE_WORKER_TOKEN",false);remoteToken.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);remote.addView(remoteToken);gap(remote,6);remote.addView(text("Commandes : remote: system.info | remote: workspace.list | remote: workspace.read chemin.txt | remote: workspace.write chemin.txt|contenu | remote: math.calculate (12+3)*4",11,MUTED,false));root.addView(remote);gap(root,16);root.addView(text("Nouvelle tâche",20,WHITE,true));prompt=field("Ex. calc: (12 + 3) * 4 ou note: idées du projet",true);root.addView(prompt);gap(root,8);root.addView(button("Exécuter l’outil local ou analyser avec l’IA",this::submitTask));gap(root,16);
         root.addView(text("Contrôle et limites",20,WHITE,true));LinearLayout catalog=column();catalog.setPadding(14,12,14,12);catalog.setBackground(shape(PANEL,18));
-        catalog.addView(text("• Exécution du modèle sur l'appareil avec llama.cpp",14,GREEN,false));catalog.addView(text("• Téléchargement initial géré par Android, reprenable selon le système et le réseau",12,MUTED,false));catalog.addView(text("• Les commandes calc:, note:, notes:list, time:now et device:info sont exécutées localement",12,GREEN,false));catalog.addView(text("• Les agents spécialisés ci-dessus utilisent le même modèle local et se distinguent par leur rôle; ce ne sont pas encore des processus séparés",12,MUTED,false));catalog.addView(text("• Le contrôle distant Windows/Linux/macOS n’est pas activé : aucun worker distant, appairage, transport authentifié ou canal TLS n’est encore intégré",12,RED,false));catalog.addView(text("• Un seul modèle GGUF est configuré et vérifié dans cette version ; ajouter d’autres modèles exige leurs fichiers, licences, empreintes et tests de compatibilité",12,MUTED,false));root.addView(catalog);
+        catalog.addView(text("• Exécution du modèle sur l'appareil avec llama.cpp",14,GREEN,false));catalog.addView(text("• Téléchargement initial géré par Android, reprenable selon le système et le réseau",12,MUTED,false));catalog.addView(text("• Les commandes calc:, note:, notes:list, time:now et device:info sont exécutées localement",12,GREEN,false));catalog.addView(text("• Les agents spécialisés ci-dessus utilisent le même modèle local et se distinguent par leur rôle; ce ne sont pas encore des processus séparés",12,MUTED,false));catalog.addView(text("• Le worker distant dispose maintenant d’un client HTTPS avec jeton et liste d’actions autorisées. Le worker doit être installé et configuré sur le PC; le certificat doit être reconnu par Android.",12,GREEN,false));catalog.addView(text("• Un seul modèle GGUF est configuré et vérifié dans cette version ; ajouter d’autres modèles exige leurs fichiers, licences, empreintes et tests de compatibilité",12,MUTED,false));root.addView(catalog);
         gap(root,16);root.addView(text("Journal de cette session",20,WHITE,true));feed=column();root.addView(feed);renderTasks();
     }
     private void confirmDownload(){
@@ -78,7 +79,7 @@ public class MainActivity extends Activity {
             }).show();
     }
     private boolean needsApproval(String s){
-        String x=s.toLowerCase(Locale.ROOT);String[] terms={"supprimer","effacer","delete","format","payer","payment","achat","acheter","envoyer un email","send email","publier","publish","installer","désinstaller","shutdown","arrêter le serveur","mot de passe","password","clé privée","private key","virement","transférer de l'argent"};
+        String x=s.toLowerCase(Locale.ROOT);if(x.startsWith("remote: workspace.write"))return true;String[] terms={"supprimer","effacer","delete","format","payer","payment","achat","acheter","envoyer un email","send email","publier","publish","installer","désinstaller","shutdown","arrêter le serveur","mot de passe","password","clé privée","private key","virement","transférer de l'argent"};
         for(String term:terms)if(x.contains(term))return true;return false;
     }
     private void submitTask(){
@@ -86,10 +87,13 @@ public class MainActivity extends Activity {
         ((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(prompt.getWindowToken(),0);
         Task task=new Task(request,needsApproval(request)?"awaiting_approval":"queued");tasks.add(0,task);prompt.setText("");renderTasks();
         if(task.state.equals("awaiting_approval"))new AlertDialog.Builder(this).setTitle("Confirmation requise").setMessage("Cette demande semble sensible. Autorises-tu seulement son analyse par le modèle local ? Aucun accès externe n'est accordé.")
-            .setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée par l'utilisateur.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->routeTask(task)).show();
+            .setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée par l'utilisateur.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->{task.approved=true;routeTask(task);}).show();
         else routeTask(task);
     }
     private void routeTask(Task task){
+        if(task.request.trim().toLowerCase(Locale.ROOT).startsWith("remote:")){
+            executeRemoteTask(task);return;
+        }
         if(LocalToolbox.handles(task.request)){
             task.state="running";task.result="Outil local en cours…";renderTasks();
             executor.execute(()->{try{String result=LocalToolbox.run(MainActivity.this,task.request);runOnUiThread(()->{task.state="completed";task.result=result;status.setText("OUTIL LOCAL EXÉCUTÉ • sans Internet");renderTasks();});}
@@ -97,6 +101,38 @@ public class MainActivity extends Activity {
             return;
         }
         execute(task);
+    }
+    private void executeRemoteTask(Task task){
+        String endpoint=remoteEndpoint==null?"":remoteEndpoint.getText().toString().trim();
+        String token=remoteToken==null?"":remoteToken.getText().toString();
+        String command=task.request.trim().substring("remote:".length()).trim();
+        String[] parts=command.split("\\s+",2);
+        String action=parts[0];
+        String args=parts.length>1?parts[1].trim():"";
+        try{
+            JSONObject payload=new JSONObject();
+            if(action.equals("system.info")||action.equals("workspace.list")||action.equals("agent.catalog")){
+                payload.put("action",action);
+                if(action.equals("workspace.list")&&!args.isEmpty())payload.put("path",args);
+            }else if(action.equals("workspace.read")){
+                if(args.isEmpty())throw new IllegalArgumentException("Indique le chemin relatif du fichier.");
+                payload.put("action",action);payload.put("path",args);
+            }else if(action.equals("workspace.write")){
+                int sep=args.indexOf('|');
+                if(sep<=0)throw new IllegalArgumentException("Format : remote: workspace.write chemin.txt|contenu");
+                payload.put("action",action);payload.put("path",args.substring(0,sep).trim());payload.put("text",args.substring(sep+1));
+            }else if(action.equals("math.calculate")){
+                if(args.isEmpty())throw new IllegalArgumentException("Indique l'expression à calculer.");
+                payload.put("action",action);payload.put("expression",args);
+            }else throw new IllegalArgumentException("Action distante non autorisée. Consulte la liste des commandes.");
+            if(!endpoint.endsWith("/v1/tasks"))throw new IllegalArgumentException("L'URL doit se terminer par /v1/tasks.");
+            if(action.equals("workspace.write")&&!task.approved)throw new IllegalArgumentException("Écriture distante bloquée sans confirmation.");
+            task.state="running";task.result="Connexion HTTPS au worker distant…";renderTasks();status.setText("WORKER DISTANT…");
+            executor.execute(()->{try{
+                String answer=RemoteWorkerClient.execute(endpoint,token,payload,task.approved);
+                runOnUiThread(()->{task.state="completed";task.result=answer;status.setText("WORKER DISTANT • réponse reçue");renderTasks();});
+            }catch(Exception e){runOnUiThread(()->{task.state="failed";task.result=e.getMessage()==null?"Erreur du worker distant":e.getMessage();status.setText("ÉCHEC DU WORKER DISTANT");renderTasks();});}});
+        }catch(Exception e){task.state="failed";task.result=e.getMessage()==null?"Demande distante invalide":e.getMessage();renderTasks();}
     }
     private void execute(Task task){
         if(!LocalModelManager.isVerified(this)){task.state="failed";task.result="Le modèle local n'est pas téléchargé. Utilise « Télécharger / réinstaller le modèle local ».";renderTasks();return;}
@@ -120,7 +156,7 @@ public class MainActivity extends Activity {
         if(feed==null)return;feed.removeAllViews();if(tasks.isEmpty()){feed.addView(text("Aucune tâche dans cette session.",13,MUTED,false));return;}
         for(Task task:tasks){LinearLayout card=column();card.setPadding(14,12,14,12);card.setBackground(shape(PANEL,16));card.addView(text(task.state.toUpperCase(Locale.ROOT).replace('_',' '),11,task.state.equals("failed")?RED:CYAN,true));card.addView(text(task.request,14,WHITE,true));
             if(task.result!=null){gap(card,5);card.addView(text(task.result,13,MUTED,false));}
-            if(task.state.equals("awaiting_approval"))card.addView(button("Examiner la demande",()->new AlertDialog.Builder(this).setTitle("Autoriser cette demande ?").setMessage(task.request).setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->execute(task)).show()));
+            if(task.state.equals("awaiting_approval"))card.addView(button("Examiner la demande",()->new AlertDialog.Builder(this).setTitle("Autoriser cette demande ?").setMessage(task.request).setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->{task.approved=true;routeTask(task);}).show()));
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;feed.addView(card,lp);
         }
     }
