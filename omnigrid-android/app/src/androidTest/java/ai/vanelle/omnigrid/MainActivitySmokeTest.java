@@ -38,8 +38,10 @@ public class MainActivitySmokeTest {
 
     @Test public void localModelProducesRealTextWhenCiProvidesModel() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        boolean required = "true".equalsIgnoreCase(
+                InstrumentationRegistry.getArguments().getString("requireLocalModel", "false"));
         if (!LocalModelManager.isPresent(context)) {
-            // A regular smoke test without a 429 MB test model remains valid.
+            assertTrue("CI required real local inference, but the GGUF model file is missing", !required);
             return;
         }
         assertTrue("GGUF SHA-256 verification failed", LocalModelManager.verifyIntegrity(context));
