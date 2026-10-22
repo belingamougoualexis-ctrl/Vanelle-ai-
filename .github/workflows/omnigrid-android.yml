@@ -70,7 +70,8 @@ jobs:
           retention-days: 30
   local-model-emulator-test:
     needs: build-apk
-    runs-on: ubuntu-latest
+    # Run ARM64 Android emulation on a native ARM64 host instead of slow nested emulation.
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -102,4 +103,4 @@ jobs:
             echo "7671c0c304e6ce5a7fc577bcb12aba01e2c155cc2efd29b2213c95b18edaf6ed  /tmp/qwen2.5-0.5b-instruct-q4_0.gguf" | sha256sum --check -
             adb shell mkdir -p /sdcard/Android/data/ai.vanelle.omnigrid.debug/files/models
             adb push /tmp/qwen2.5-0.5b-instruct-q4_0.gguf /sdcard/Android/data/ai.vanelle.omnigrid.debug/files/models/qwen2.5-0.5b-instruct-q4_0.gguf
-            gradle --no-daemon connectedDebugAndroidTest
+            gradle --no-daemon -Pandroid.testInstrumentationRunnerArguments.requireLocalModel=true connectedDebugAndroidTest
