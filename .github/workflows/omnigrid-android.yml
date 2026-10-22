@@ -4,6 +4,7 @@ on:
     branches: ["**"]
     paths:
       - "omnigrid-android/**"
+      - "omnigrid-worker/**"
       - ".github/workflows/omnigrid-android.yml"
   pull_request:
     paths:
