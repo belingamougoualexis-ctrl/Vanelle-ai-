@@ -13,6 +13,17 @@ on:
 permissions:
   contents: read
 jobs:
+  worker-security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test cross-platform worker allow-list and approvals
+        working-directory: omnigrid-worker
+        run: python -m unittest -v test_worker.py
+
   build-apk:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +40,9 @@ jobs:
           packages: platform-tools
       - name: Install Android SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Run specialist-agent unit tests
+        working-directory: omnigrid-android
+        run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
         working-directory: omnigrid-android
         run: gradle --no-daemon --stacktrace assembleDebug
