@@ -1,20 +1,18 @@
-# VANELLE OMNIGRID AI — Android
+# VANELLE OMNIGRID AI — local-first Android
 
-Standalone Android app module added to the existing Vanelle-ai- repository; existing projects and files are preserved.
+## Local AI runtime
+- Native on-device text generation through llama.cpp Android AAR (dev.ffmpegkit-maintained:llama-android:0.1.1).
+- Default model: Qwen2.5-0.5B-Instruct GGUF Q4_0 (about 429 MB), Apache-2.0 model license.
+- Initial download uses Android DownloadManager. Model is checked for GGUF magic and the published SHA-256 before it is trusted.
+- After model download, prompt inference is local: no provider URL, API key, or prompt upload is used by the app.
+- Model load uses a 2,048-token context and 2–4 CPU threads; inference releases native model memory after each request.
+- A built-in self-test performs real inference and shows the model's actual response.
 
-## Build and verification
-- Android application ID: ai.vanelle.omnigrid (debug builds use ai.vanelle.omnigrid.debug)
-- minSdk 26, target/compile SDK 35, Java 17, Gradle 8.10.2
-- CI builds debug and release APKs and launches the app in an Android 35 emulator using an Espresso smoke test.
-- APKs are uploaded as workflow artifacts after all preceding build/test steps succeed.
+## Build / tests
+- Android SDK 35, Java 17, Kotlin 2.0.21, Gradle 8.10.2.
+- GitHub Actions builds debug and release APKs, then runs the Android emulator UI smoke test.
+- CI build proves compilation; it does not prove a model was downloaded or real local inference succeeded on a physical phone. The in-app self-test is the real inference test to run after download.
+- The bundled llama-android AAR documents arm64-v8a support. A device/emulator must support that ABI; 429 MB download plus model/cache memory are required.
 
-## Included
-- Native Android task submission and in-session task journal
-- Approval dialog for a list of sensitive-action keywords
-- Configurable HTTPS endpoint and exact model ID for OpenAI-compatible chat-completions providers
-- API key encrypted with Android Keystore AES-GCM
-- Real provider connection test and visible HTTP/provider errors
-- Prompting that requires the model to distinguish proposed steps from actions actually performed
-
-## Explicit limits
-This is an AI-assisted planner, not a universal autonomous computer grid yet. It does not ship every AI model, contain local GGUF inference, install model weights, operate remote Windows/macOS/Linux agents, execute shell commands on other computers, or include a production multi-user backend. The approval detector is a basic keyword gate, not a complete safety system. Provider use requires a valid key and access to the selected model. Emulator smoke tests do not replace testing on the user's specific physical phone. Release APK is unsigned; distribution-grade signing requires a separately configured signing key.
+## Not yet implemented
+This is local on-device language-model inference and planning, not a finished universal autonomous computer grid. It does not execute actions on remote Windows/Linux/macOS computers, include a secure multi-user backend, or ship every model. Models are too large and diverse to bundle all AI models; this app currently downloads one small model locally.
