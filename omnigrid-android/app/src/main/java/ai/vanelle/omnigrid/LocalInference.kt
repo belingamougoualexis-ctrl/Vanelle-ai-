@@ -14,7 +14,7 @@ object LocalInference {
     fun generate(context: Context, prompt: String): String = runBlocking(Dispatchers.IO) {
         val directory = context.getExternalFilesDir("models") ?: File(context.filesDir, "models")
         val file = File(directory, MODEL_FILE)
-        require(file.isFile && file.length() > 300_000_000L) {
+        require(LocalModelManager.isVerified(context) && file.isFile && file.length() > 300_000_000L) {
             "Modèle local absent ou incomplet. Télécharge-le depuis les paramètres IA."
         }
         val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
