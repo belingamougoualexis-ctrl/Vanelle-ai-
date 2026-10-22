@@ -11,11 +11,12 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 
 @RunWith(AndroidJUnit4.class)
 public class MainActivitySmokeTest {
-    @Test public void homeScreenLaunchesAndShowsBrand() {
+    @Test public void homeScreenLaunchesInLocalOnlyMode() {
         try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
             onView(withText("OMNIGRID AI")).check(matches(isDisplayed()));
-            onView(withText("Nouvelle tâche")).check(matches(isDisplayed()));
-            onView(withText("Paramètres IA et modèles")).check(matches(isDisplayed()));
+            onView(withText("Moteur IA local")).check(matches(isDisplayed()));
+            onView(withText("Analyser hors ligne")).check(matches(isDisplayed()));
+            onView(withText("Télécharger / réinstaller le modèle local")).check(matches(isDisplayed()));
         }
     }
 }
