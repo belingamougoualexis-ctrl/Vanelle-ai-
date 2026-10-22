@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
         }
     }};
     private static final class Task { final String request; String state,result; Task(String r,String s){request=r;state=s;} }
-    @Override public void onCreate(Bundle state){super.onCreate(state);buildHome();IntentFilter f=new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(downloadReceiver,f,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(downloadReceiver,f);receiverRegistered=true;handler.post(pollDownload);if(LocalModelManager.isPresent(this))status.setText("MODÈLE LOCAL PRÉSENT • vérification au prochain test");}
+    @Override public void onCreate(Bundle state){super.onCreate(state);buildHome();IntentFilter f=new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(downloadReceiver,f,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(downloadReceiver,f);receiverRegistered=true;handler.post(pollDownload);if(LocalModelManager.isPresent(this)){status.setText("VÉRIFICATION DU MODÈLE LOCAL…");executor.execute(()->{try{boolean valid=LocalModelManager.verifyIntegrity(MainActivity.this);runOnUiThread(()->{status.setText(valid?"IA LOCALE PRÊTE":"MODÈLE LOCAL INVALIDE");modelStatus.setText(valid?"Modèle vérifié — prêt hors ligne":"Le modèle a échoué à la vérification SHA-256.");});}catch(Exception e){runOnUiThread(()->{status.setText("VÉRIFICATION IMPOSSIBLE");modelStatus.setText(e.getMessage());});}});}}
     private GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(radius);d.setStroke(1,Color.rgb(39,62,88));return d;}
     private TextView text(String value,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setPadding(0,4,0,4);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button button(String value,Runnable action){Button b=new Button(this);b.setText(value);b.setTextColor(WHITE);b.setAllCaps(false);b.setBackground(shape(BLUE,18));b.setOnClickListener(v->action.run());return b;}
@@ -90,7 +90,7 @@ public class MainActivity extends Activity {
         else execute(task);
     }
     private void execute(Task task){
-        if(!LocalModelManager.isPresent(this)){task.state="failed";task.result="Le modèle local n'est pas téléchargé. Utilise « Télécharger / réinstaller le modèle local ».";renderTasks();return;}
+        if(!LocalModelManager.isVerified(this)){task.state="failed";task.result="Le modèle local n'est pas téléchargé. Utilise « Télécharger / réinstaller le modèle local ».";renderTasks();return;}
         task.state="running";task.result="Inférence locale en cours…";renderTasks();status.setText("INFÉRENCE LOCALE…");
         executor.execute(()->{try{
             String answer=LocalInference.generate(MainActivity.this,
@@ -99,7 +99,7 @@ public class MainActivity extends Activity {
         }catch(Exception e){runOnUiThread(()->{task.state="failed";task.result=e.getMessage()==null?"Erreur d'inférence locale":e.getMessage();status.setText("ERREUR IA LOCALE");renderTasks();});}});
     }
     private void runLocalSelfTest(){
-        if(!LocalModelManager.isPresent(this)){toast("Modèle absent : télécharge-le d'abord.");return;}
+        if(!LocalModelManager.isVerified(this)){toast("Modèle absent ou non vérifié : télécharge-le ou relance la vérification.");return;}
         status.setText("TEST RÉEL DU MODÈLE EN COURS…");modelStatus.setText("Chargement du GGUF et génération d'un texte de contrôle…");
         executor.execute(()->{try{
             String answer=LocalInference.generate(MainActivity.this,"Réponds exactement par ces mots : VANELLE IA LOCALE OK");
