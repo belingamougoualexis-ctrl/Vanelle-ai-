@@ -1,0 +1,58 @@
+name: VANELLE OMNIGRID AI - build and emulator smoke test
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "omnigrid-android/**"
+      - ".github/workflows/omnigrid-android.yml"
+  pull_request:
+    paths:
+      - "omnigrid-android/**"
+      - ".github/workflows/omnigrid-android.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+      - name: Build debug APK
+        working-directory: omnigrid-android
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Build release APK
+        working-directory: omnigrid-android
+        run: gradle --no-daemon --stacktrace assembleRelease
+      - name: Run app on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: cd omnigrid-android && gradle --no-daemon connectedDebugAndroidTest
+      - name: Verify APK exists
+        working-directory: omnigrid-android
+        run: test -s app/build/outputs/apk/debug/app-debug.apk && ls -lh app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vanelle-omnigrid-ai-debug-apk
+          path: omnigrid-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vanelle-omnigrid-ai-release-unsigned
+          path: omnigrid-android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 30
