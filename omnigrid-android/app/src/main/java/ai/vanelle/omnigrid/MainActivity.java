@@ -65,9 +65,9 @@ public class MainActivity extends Activity {
         modelCard.addView(text("Le premier téléchargement nécessite Internet. Ensuite, la génération de texte fonctionne hors ligne. Prévois au moins 1,5 Go de mémoire libre pour le modèle et le cache.",12,MUTED,false));
         modelStatus=text(LocalModelManager.downloadStatus(this),13,CYAN,true);modelCard.addView(modelStatus);gap(modelCard,8);
         modelCard.addView(button("Télécharger / réinstaller le modèle local",this::confirmDownload));modelCard.addView(button("Tester réellement l'IA locale",this::runLocalSelfTest));root.addView(modelCard);
-        gap(root,16);root.addView(text("Nouvelle tâche",20,WHITE,true));prompt=field("Décris ce que tu veux accomplir…",true);root.addView(prompt);gap(root,8);root.addView(button("Analyser hors ligne",this::submitTask));gap(root,16);
+        gap(root,16);root.addView(text("Outils locaux exécutables",20,WHITE,true));LinearLayout tools=column();tools.setPadding(14,12,14,12);tools.setBackground(shape(PANEL,18));tools.addView(text("Ces commandes agissent réellement sur cet appareil, sans Internet ni modèle IA :",13,GREEN,true));tools.addView(text(LocalToolbox.help(),12,MUTED,false));root.addView(tools);gap(root,16);root.addView(text("Nouvelle tâche",20,WHITE,true));prompt=field("Ex. calc: (12 + 3) * 4 ou note: idées du projet",true);root.addView(prompt);gap(root,8);root.addView(button("Exécuter l’outil local ou analyser avec l’IA",this::submitTask));gap(root,16);
         root.addView(text("Contrôle et limites",20,WHITE,true));LinearLayout catalog=column();catalog.setPadding(14,12,14,12);catalog.setBackground(shape(PANEL,18));
-        catalog.addView(text("• Exécution du modèle sur l'appareil avec llama.cpp",14,GREEN,false));catalog.addView(text("• Téléchargement initial géré par Android, reprenable selon le système et le réseau",12,MUTED,false));catalog.addView(text("• Le modèle peut planifier et conseiller, mais ne contrôle pas encore des ordinateurs distants",12,RED,false));catalog.addView(text("• Cette version installe un modèle local précis ; tous les modèles d'IA ne peuvent pas être inclus dans un seul APK",12,MUTED,false));root.addView(catalog);
+        catalog.addView(text("• Exécution du modèle sur l'appareil avec llama.cpp",14,GREEN,false));catalog.addView(text("• Téléchargement initial géré par Android, reprenable selon le système et le réseau",12,MUTED,false));catalog.addView(text("• Les commandes calc:, note:, notes:list, time:now et device:info sont exécutées localement",12,GREEN,false));catalog.addView(text("• Pas encore de contrôle distant Windows/Linux/macOS : il faut des agents installés sur ces ordinateurs et un canal sécurisé",12,RED,false));catalog.addView(text("• Un seul modèle GGUF est configuré et vérifié dans cette version ; ajouter d’autres modèles exige leurs fichiers, licences, empreintes et tests de compatibilité",12,MUTED,false));root.addView(catalog);
         gap(root,16);root.addView(text("Journal de cette session",20,WHITE,true));feed=column();root.addView(feed);renderTasks();
     }
     private void confirmDownload(){
@@ -86,8 +86,17 @@ public class MainActivity extends Activity {
         ((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(prompt.getWindowToken(),0);
         Task task=new Task(request,needsApproval(request)?"awaiting_approval":"queued");tasks.add(0,task);prompt.setText("");renderTasks();
         if(task.state.equals("awaiting_approval"))new AlertDialog.Builder(this).setTitle("Confirmation requise").setMessage("Cette demande semble sensible. Autorises-tu seulement son analyse par le modèle local ? Aucun accès externe n'est accordé.")
-            .setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée par l'utilisateur.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->execute(task)).show();
-        else execute(task);
+            .setNegativeButton("Refuser",(d,w)->{task.state="rejected";task.result="Refusée par l'utilisateur.";renderTasks();}).setPositiveButton("Autoriser l'analyse locale",(d,w)->routeTask(task)).show();
+        else routeTask(task);
+    }
+    private void routeTask(Task task){
+        if(LocalToolbox.handles(task.request)){
+            task.state="running";task.result="Outil local en cours…";renderTasks();
+            executor.execute(()->{try{String result=LocalToolbox.run(MainActivity.this,task.request);runOnUiThread(()->{task.state="completed";task.result=result;status.setText("OUTIL LOCAL EXÉCUTÉ • sans Internet");renderTasks();});}
+                catch(Exception e){runOnUiThread(()->{task.state="failed";task.result=e.getMessage()==null?"Erreur de l'outil local":e.getMessage();renderTasks();});}});
+            return;
+        }
+        execute(task);
     }
     private void execute(Task task){
         if(!LocalModelManager.isVerified(this)){task.state="failed";task.result="Le modèle local n'est pas téléchargé. Utilise « Télécharger / réinstaller le modèle local ».";renderTasks();return;}
