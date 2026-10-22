@@ -34,9 +34,10 @@ class AgentError(ValueError):
     pass
 
 
-def _safe_path(relative: str) -> Path:
-    candidate = (WORKSPACE / relative).resolve()
-    if candidate != WORKSPACE and WORKSPACE not in candidate.parents:
+def _safe_path(relative: str, workspace: Path = WORKSPACE) -> Path:
+    root = workspace.resolve()
+    candidate = (root / relative).resolve()
+    if candidate != root and root not in candidate.parents:
         raise AgentError("Chemin refusé : sortie de l'espace de travail.")
     return candidate
 
@@ -117,7 +118,7 @@ class Worker:
             result = {"path": str(path.relative_to(self.workspace)), "text": path.read_text(encoding="utf-8")}
         elif action == "workspace.write":
             if not approved: return {"status": "approval_required", "action": action, "message": "Écriture bloquée : approbation explicite requise."}
-            path = _safe_path(str(payload.get("path", "")))
+            path = _safe_path(str(payload.get("path", "")), self.workspace)
             text = payload.get("text")
             if not isinstance(text, str) or len(text.encode("utf-8")) > 1_000_000:
                 raise AgentError("Texte invalide ou supérieur à 1 Mo.")
