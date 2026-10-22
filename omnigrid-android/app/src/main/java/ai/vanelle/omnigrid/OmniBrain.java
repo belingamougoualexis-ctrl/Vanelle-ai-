@@ -19,7 +19,7 @@ public final class OmniBrain {
         if (model == null || model.trim().isEmpty()) throw new IllegalArgumentException("Identifiant de modèle requis.");
         if (apiKey == null || apiKey.trim().isEmpty()) throw new IllegalArgumentException("Clé API manquante : ouvre Paramètres IA.");
         String root = baseUrl.trim().replaceAll("/+$", "");
-        if (root.endsWith("/chat/completions")) root = root.substring(0, root.length() - 16);
+        if (root.endsWith("/chat/completions")) root = root.substring(0, root.length() - "/chat/completions".length());
         HttpURLConnection c = (HttpURLConnection) new URL(root + "/chat/completions").openConnection();
         c.setRequestMethod("POST"); c.setConnectTimeout(15000); c.setReadTimeout(90000); c.setDoOutput(true);
         c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
