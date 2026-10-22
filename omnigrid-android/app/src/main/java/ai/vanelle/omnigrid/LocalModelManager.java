@@ -16,6 +16,7 @@ public final class LocalModelManager {
     public static final String EXPECTED_SHA256 = "7671c0c304e6ce5a7fc577bcb12aba01e2c155cc2efd29b2213c95b18edaf6ed";
     private static final String PREFS = "local_model_download";
     private static final String DOWNLOAD_ID = "download_id";
+    private static final String VERIFIED = "verified_sha256";
     private LocalModelManager() {}
     public static File modelFile(Context context) {
         File dir = context.getExternalFilesDir("models");
@@ -27,7 +28,10 @@ public final class LocalModelManager {
         File f = modelFile(context);
         return f.isFile() && f.length() > 300_000_000L;
     }
+    public static boolean isVerified(Context context) { return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(VERIFIED, false) && isPresent(context); }
+    public static void clearVerified(Context context) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(VERIFIED, false).apply(); }
     public static long startDownload(Context context) {
+        clearVerified(context);
         File destination = modelFile(context);
         if (destination.exists() && !destination.delete()) throw new IllegalStateException("Impossible de remplacer le modèle incomplet.");
         DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
@@ -47,7 +51,8 @@ public final class LocalModelManager {
     }
     public static String downloadStatus(Context context) {
         long id = savedDownloadId(context);
-        if (id < 0) return isPresent(context) ? "Modèle téléchargé" : "Modèle non téléchargé";
+        if (isVerified(context)) return "Modèle vérifié — prêt hors ligne";
+        if (id < 0) return isPresent(context) ? "Modèle présent — vérification requise" : "Modèle non téléchargé";
         DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
         try (Cursor c = dm.query(new DownloadManager.Query().setFilterById(id))) {
             if (c == null || !c.moveToFirst()) return "Téléchargement introuvable";
@@ -74,6 +79,8 @@ public final class LocalModelManager {
         }
         StringBuilder hex = new StringBuilder();
         for (byte b : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", b & 0xff));
-        return EXPECTED_SHA256.equals(hex.toString());
+        boolean valid = EXPECTED_SHA256.equals(hex.toString());
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(VERIFIED, valid).apply();
+        return valid;
     }
 }
