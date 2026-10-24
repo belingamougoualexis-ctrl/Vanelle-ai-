@@ -1,0 +1,1 @@
+The build workflow is stored at repository root under .github/workflows/aircore-zero-android.yml.
